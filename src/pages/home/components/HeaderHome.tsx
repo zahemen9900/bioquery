@@ -2,6 +2,7 @@
 
 import { Button } from "@/components/ui/button";
 import { motion } from "motion/react";
+import { Link } from "react-router-dom";
 
 export function HeaderHome() {
   return (
@@ -52,9 +53,11 @@ export function HeaderHome() {
               transition={{ duration: 0.5, delay: 0.3 }}
               className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-4 md:mt-10"
             >
-              <Button title="Launch" size="lg" className="min-w-40">
-                Get Started
-              </Button>
+              <Link to="/auth" className="inline-flex">
+                <Button title="Launch" size="lg" className="min-w-40">
+                  Get Started
+                </Button>
+              </Link>
               <Button title="Learn" variant="secondary" size="lg" className="min-w-40">
                 Watch Demo
               </Button>

@@ -44,7 +44,7 @@ NB from Boss: Real embeddings already exist so I prefer to use that first
 - Documented project structure in `README.md` section.
 - Automated lint/test pipeline green.
 
-### Sprint 1 — Chat Shell & Supabase Foundations (Week 1)
+### Sprint 1 — Chat Shell & Supabase Foundations (Day 1)
 
 #### Sprint 1 Goals
 
@@ -68,7 +68,7 @@ NB from Boss: Real embeddings already exist so I prefer to use that first
 - Database migration files ready for review.
 - Updated docs describing how to run Supabase locally.
 
-### Sprint 2 — Persistent Chats & Artifact System (Week 2)
+### Sprint 2 — Persistent Chats & Artifact System (Day 2)
 
 #### Sprint 2 Goals
 
@@ -90,7 +90,7 @@ NB from Boss: Real embeddings already exist so I prefer to use that first
 - Artifact pinning and viewing experience live.
 - Documentation updates covering data flows and API contracts.
 
-### Sprint 3 — Knowledge Graph & Visualization UX (Week 3)
+### Sprint 3 — Knowledge Graph & Visualization UX (Day 3)
 
 #### Sprint 3 Goals
 
