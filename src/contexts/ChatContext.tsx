@@ -1,8 +1,17 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import supabase from '@/lib/supabase-client'
 import { useAuth } from './auth-context-types'
-import { ChatContext, type ChatContextValue, type ChatMessage, type ChatSummary } from './chat-context-types'
+import {
+  ChatContext,
+  type ActiveStreamState,
+  type ChatContextValue,
+  type ChatMessage,
+  type ChatSummary,
+  type GroundingSource,
+  type GroundingSupportSnippet,
+} from './chat-context-types'
+import { generateChatTitle, streamChatResponse } from '@/services/chat-service'
 
 interface ChatProviderProps {
   children: React.ReactNode
@@ -13,15 +22,88 @@ const mapChat = (entry: ChatSummary): ChatSummary => ({
   chat_name: entry.chat_name?.trim() || null,
 })
 
+const sortMessages = (entries: ChatMessage[]): ChatMessage[] =>
+  [...entries].sort((a, b) => {
+    const createdDelta = new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+    if (createdDelta !== 0) return createdDelta
+    return Number(a.id) - Number(b.id)
+  })
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value)
+
+const parseSupportSnippets = (value: unknown): GroundingSupportSnippet[] => {
+  if (!Array.isArray(value)) return []
+  return value
+    .map((entry) => {
+      if (!isRecord(entry)) return null
+      const text = typeof entry.text === 'string' ? entry.text : null
+      const startIndex = typeof entry.startIndex === 'number' ? entry.startIndex : null
+      const endIndex = typeof entry.endIndex === 'number' ? entry.endIndex : null
+      if (!text && startIndex === null && endIndex === null) return null
+      return {
+        text,
+        startIndex,
+        endIndex,
+      }
+    })
+    .filter((entry): entry is GroundingSupportSnippet => Boolean(entry))
+}
+
+const parseGroundingSources = (toolContents: Record<string, unknown>[] | null | undefined): GroundingSource[] => {
+  if (!Array.isArray(toolContents) || toolContents.length === 0) return []
+
+  const entry = toolContents.find((item) => isRecord(item) && item.type === 'grounding_sources')
+  if (!isRecord(entry)) return []
+
+  const sourcesValue = entry.sources
+  if (!Array.isArray(sourcesValue)) return []
+
+  return sourcesValue
+    .map((source) => {
+      if (!isRecord(source)) return null
+
+      const id = typeof source.id === 'number' ? source.id : Number(source.id)
+      if (!Number.isFinite(id) || id <= 0) return null
+
+      const title = typeof source.title === 'string' ? source.title : null
+      const url = typeof source.url === 'string' ? source.url : null
+      const domain = typeof source.domain === 'string' ? source.domain : null
+      const favicon = typeof source.favicon === 'string' ? source.favicon : null
+      const retrievalStatus = typeof source.retrievalStatus === 'string' ? source.retrievalStatus : null
+      const supports = parseSupportSnippets(source.supports)
+
+      return {
+        id,
+        title,
+        url,
+        domain,
+        favicon,
+        retrievalStatus,
+        supports,
+      }
+    })
+    .filter((source): source is GroundingSource => Boolean(source))
+    .sort((a, b) => a.id - b.id)
+}
+
+const hydrateMessage = (entry: ChatMessage, overrides?: Partial<ChatMessage>): ChatMessage => ({
+  ...entry,
+  ...overrides,
+  thoughts: entry.thoughts ?? null,
+  feedback: entry.feedback ?? null,
+  sources: Array.isArray(entry.sources) && entry.sources.length > 0 ? entry.sources : parseGroundingSources(entry.tool_contents),
+  pending: overrides?.pending ?? entry.pending ?? false,
+})
+
 export function ChatProvider({ children }: ChatProviderProps) {
   const { user } = useAuth()
   const [selectedChatId, setSelectedChatId] = useState<string | null>(null)
-  // Local optimistic state for messages per chat id
-  const optimisticMessagesRef = useRef<Record<string, ChatMessage[]>>({})
+  const [activeStream, setActiveStream] = useState<ActiveStreamState | null>(null)
   const queryClient = useQueryClient()
 
   const chatsKey = useMemo(() => ['chats', user?.id], [user?.id])
-  const messagesKey = (chatId: string | null) => ['messages', chatId]
+  const messagesKey = useCallback((chatId: string | null) => ['messages', chatId] as const, [])
 
   const fetchChats = useCallback(async (): Promise<ChatSummary[]> => {
     if (!user) return []
@@ -45,17 +127,18 @@ export function ChatProvider({ children }: ChatProviderProps) {
   })
 
   const fetchMessages = useCallback(async (): Promise<ChatMessage[]> => {
-    if (!user || !selectedChatId) return []
+    if (!user || !selectedChatId || selectedChatId.startsWith('temp-')) return []
     const { data, error } = await supabase
       .from('chat_messages')
       .select('*')
       .eq('chat_id', selectedChatId)
       .order('created_at', { ascending: true })
+      .order('id', { ascending: true })
     if (error) {
       console.error('Failed to load messages', error)
       return []
     }
-    return data ?? []
+    return sortMessages((data ?? []).map((entry) => hydrateMessage(entry as ChatMessage, { pending: false })))
   }, [selectedChatId, user])
 
   const {
@@ -69,7 +152,7 @@ export function ChatProvider({ children }: ChatProviderProps) {
 
   const reset = useCallback(() => {
     setSelectedChatId(null)
-    optimisticMessagesRef.current = {}
+    setActiveStream(null)
     queryClient.removeQueries({ queryKey: chatsKey })
   }, [chatsKey, queryClient])
 
@@ -83,7 +166,7 @@ export function ChatProvider({ children }: ChatProviderProps) {
       if (!chatId) return
       await queryClient.invalidateQueries({ queryKey: messagesKey(chatId) })
     },
-    [queryClient, selectedChatId],
+    [messagesKey, queryClient, selectedChatId],
   )
 
   const selectChat = useCallback((chatId: string | null) => {
@@ -112,67 +195,195 @@ export function ChatProvider({ children }: ChatProviderProps) {
   const sendMessage = useCallback<ChatContextValue['sendMessage']>(
     async (content, sender = 'user', chatIdParam) => {
       if (!user) return null
-      let chatId = chatIdParam ?? selectedChatId
 
-      // If chatId is a temp id or missing, persist a new chat first (only once we have a user message)
-      if (!chatId || chatId.startsWith('temp-')) {
-        const { data: persisted, error: chatErr } = await supabase
-          .from('chats')
-          .insert({ user_id: user.id, chat_name: null })
-          .select('*')
-          .single<ChatSummary>()
-        if (chatErr || !persisted) {
-          console.error('Failed to create chat for first message', chatErr)
-          return null
-        }
-        const mapped = mapChat(persisted)
-        chatId = mapped.id
-        // Replace temp chat in cache
-        queryClient.setQueryData<ChatSummary[]>(chatsKey, (old = []) => {
-          return [mapped, ...old.filter((c) => !c.id.startsWith('temp-'))]
-        })
-        setSelectedChatId(chatId)
+      const trimmed = content.trim()
+      if (!trimmed) return null
+
+      let activeChatId = chatIdParam ?? selectedChatId
+      let isTemporary = false
+
+      if (!activeChatId) {
+        const tempChat = await createChat('Untitled chat')
+        activeChatId = tempChat?.id ?? null
+        isTemporary = !!(activeChatId && activeChatId.startsWith('temp-'))
+      } else if (activeChatId.startsWith('temp-')) {
+        isTemporary = true
       }
 
-      const optimisticMessage: ChatMessage = {
-        id: Date.now(),
-        chat_id: chatId,
-        sender,
-        content,
-        tool_calls: [],
-        tool_contents: [],
-        created_at: new Date().toISOString(),
-      }
-      optimisticMessagesRef.current[chatId] = [...(optimisticMessagesRef.current[chatId] || []), optimisticMessage]
-      queryClient.setQueryData<ChatMessage[]>(messagesKey(chatId), (old = []) => [...old, optimisticMessage])
-
-      const { data, error } = await supabase
-        .from('chat_messages')
-        .insert({ chat_id: chatId, sender, content })
-        .select('*')
-        .single<ChatMessage>()
-
-      if (error || !data) {
-        console.error('Failed to send message', error)
-        // rollback optimistic
-        queryClient.setQueryData<ChatMessage[]>(messagesKey(chatId), (old = []) => old.filter((m) => m.id !== optimisticMessage.id))
+      if (!activeChatId) {
+        console.error('No chat id available for message dispatch')
         return null
       }
 
-      // Replace optimistic with real
-      queryClient.setQueryData<ChatMessage[]>(messagesKey(chatId), (old = []) =>
-        old.map((m) => (m.id === optimisticMessage.id ? data : m)),
-      )
+      const messagesCacheKey = messagesKey(activeChatId)
+      const nowIso = new Date().toISOString()
 
-      await supabase
-        .from('chats')
-        .update({ date_last_modified: new Date().toISOString() })
-        .eq('id', chatId)
+      const optimisticUser: ChatMessage = {
+        id: Date.now(),
+        chat_id: activeChatId,
+        sender,
+        content: trimmed,
+        thoughts: null,
+        tool_calls: [],
+        tool_contents: [],
+        created_at: nowIso,
+        pending: true,
+        feedback: null,
+        sources: [],
+      }
 
-      await refreshChats()
-      return data
+  const assistantPlaceholderId = -Date.now()
+      let assistantContent = ''
+      let assistantThoughts = ''
+
+      let assistantOptimistic: ChatMessage = {
+        id: assistantPlaceholderId,
+        chat_id: activeChatId,
+        sender: 'assistant',
+        content: '',
+        thoughts: '',
+        tool_calls: [],
+        tool_contents: [],
+        created_at: nowIso,
+        pending: true,
+        feedback: null,
+        sources: [],
+      }
+
+      queryClient.setQueryData<ChatMessage[]>(messagesCacheKey, (old = []) => [...old, optimisticUser, assistantOptimistic])
+
+      setActiveStream({
+        chatId: activeChatId,
+        messageId: assistantPlaceholderId,
+        stage: 'pending',
+        thoughts: '',
+      })
+
+      const titlePromise = isTemporary
+        ? generateChatTitle(trimmed).catch(() => ({ title: 'Untitled chat', didFallback: true }))
+        : Promise.resolve({ title: '', didFallback: true })
+
+      try {
+        const stream = streamChatResponse({
+          chatId: isTemporary ? undefined : activeChatId,
+          message: trimmed,
+          chatTitle: isTemporary ? 'Untitled chat' : undefined,
+        })
+
+        let finalChat: ChatSummary | null = null
+  let finalMessages: ChatMessage[] = []
+
+        for await (const event of stream) {
+          if (event.type === 'thought') {
+            assistantThoughts += event.delta
+            assistantOptimistic = {
+              ...assistantOptimistic,
+              thoughts: assistantThoughts,
+            }
+            setActiveStream((current) =>
+              current && current.chatId === activeChatId && current.messageId === assistantPlaceholderId
+                ? { ...current, stage: 'thinking', thoughts: assistantThoughts }
+                : current,
+            )
+            queryClient.setQueryData<ChatMessage[]>(messagesCacheKey, (old = []) =>
+              old.map((message) => (message.id === assistantPlaceholderId ? assistantOptimistic : message)),
+            )
+          } else if (event.type === 'response') {
+            assistantContent += event.delta
+            assistantOptimistic = {
+              ...assistantOptimistic,
+              content: assistantContent,
+              thoughts: assistantThoughts,
+            }
+            setActiveStream((current) =>
+              current && current.chatId === activeChatId && current.messageId === assistantPlaceholderId
+                ? { ...current, stage: 'responding', thoughts: assistantThoughts }
+                : current,
+            )
+            queryClient.setQueryData<ChatMessage[]>(messagesCacheKey, (old = []) =>
+              old.map((message) => (message.id === assistantPlaceholderId ? assistantOptimistic : message)),
+            )
+          } else if (event.type === 'complete') {
+            finalChat = mapChat(event.chat)
+            finalMessages = sortMessages(
+              (event.messages ?? []).map((message) => hydrateMessage(message, { pending: false })),
+            )
+          } else if (event.type === 'error') {
+            throw new Error(event.message || 'Streaming request failed')
+          }
+        }
+
+        if (!finalChat) {
+          throw new Error('Chat stream did not return completion payload')
+        }
+
+        const resolvedChatId = finalChat.id
+
+        if (isTemporary) {
+          queryClient.setQueryData<ChatSummary[]>(chatsKey, (old = []) => {
+            const filtered = old.filter((chat) => chat.id !== activeChatId)
+            return [finalChat!, ...filtered]
+          })
+
+          queryClient.removeQueries({ queryKey: messagesKey(activeChatId) })
+          queryClient.setQueryData<ChatMessage[]>(messagesKey(resolvedChatId), () => sortMessages(finalMessages))
+          setSelectedChatId(resolvedChatId)
+        } else {
+          queryClient.setQueryData<ChatSummary[]>(chatsKey, (old = []) =>
+            old.map((chat) => (chat.id === resolvedChatId ? finalChat! : chat)),
+          )
+
+          queryClient.setQueryData<ChatMessage[]>(messagesKey(resolvedChatId), (old = []) => {
+            const preserved = old.filter(
+              (message) => message.id !== optimisticUser.id && message.id !== assistantPlaceholderId,
+            )
+            return sortMessages([...preserved, ...finalMessages])
+          })
+        }
+
+        setActiveStream(null)
+        await refreshChats()
+        await refreshMessages(resolvedChatId)
+
+        if (isTemporary) {
+          const titleResult = await titlePromise
+          const finalTitle = titleResult.title.trim()
+
+          if (!titleResult.didFallback && finalTitle) {
+            const { data: updatedChat, error: updateError } = await supabase
+              .from('chats')
+              .update({ chat_name: finalTitle })
+              .eq('id', resolvedChatId)
+              .select('*')
+              .single<ChatSummary>()
+
+            if (!updateError && updatedChat) {
+              const mapped = mapChat(updatedChat)
+              queryClient.setQueryData<ChatSummary[]>(chatsKey, (old = []) =>
+                old.map((chat) => (chat.id === mapped.id ? mapped : chat)),
+              )
+              await refreshChats()
+            }
+          }
+        }
+
+        return finalMessages.at(-1) ?? null
+      } catch (error) {
+        console.error('Failed to stream chat message', error)
+        queryClient.setQueryData<ChatMessage[]>(messagesCacheKey, (old = []) =>
+          old.filter((message) => message.id !== assistantPlaceholderId && message.id !== optimisticUser.id),
+        )
+
+        if (isTemporary) {
+          queryClient.setQueryData<ChatSummary[]>(chatsKey, (old = []) => old.filter((chat) => chat.id !== activeChatId))
+          setSelectedChatId(null)
+        }
+
+        setActiveStream(null)
+        return null
+      }
     },
-    [chatsKey, queryClient, refreshChats, selectedChatId, user],
+    [chatsKey, createChat, messagesKey, queryClient, refreshChats, refreshMessages, selectedChatId, user],
   )
 
   useEffect(() => {
@@ -186,6 +397,137 @@ export function ChatProvider({ children }: ChatProviderProps) {
     [chatSummaries, selectedChatId],
   )
 
+  const renameChat = useCallback<ChatContextValue['renameChat']>(
+    async (chatId, chatName) => {
+      if (!user || !chatId || chatId.startsWith('temp-')) return null
+
+      const trimmed = chatName?.trim() ?? ''
+      const { data, error } = await supabase
+        .from('chats')
+        .update({ chat_name: trimmed.length > 0 ? trimmed : null })
+        .eq('id', chatId)
+        .eq('user_id', user.id)
+        .select('*')
+        .single<ChatSummary>()
+
+      if (error || !data) {
+        console.error('Failed to rename chat', error)
+        return null
+      }
+
+      const mapped = mapChat(data)
+
+      queryClient.setQueryData<ChatSummary[]>(chatsKey, (old = []) =>
+        old.map((chat) => (chat.id === chatId ? mapped : chat)),
+      )
+
+      await refreshChats()
+      return mapped
+    },
+    [chatsKey, queryClient, refreshChats, user],
+  )
+
+  const toggleStar = useCallback<ChatContextValue['toggleStar']>(
+    async (chatId, isStarred) => {
+      if (!user || !chatId || chatId.startsWith('temp-')) return null
+
+      const { data, error } = await supabase
+        .from('chats')
+        .update({ is_starred: isStarred })
+        .eq('id', chatId)
+        .eq('user_id', user.id)
+        .select('*')
+        .single<ChatSummary>()
+
+      if (error || !data) {
+        console.error('Failed to toggle star', error)
+        return null
+      }
+
+      const mapped = mapChat(data)
+
+      queryClient.setQueryData<ChatSummary[]>(chatsKey, (old = []) =>
+        old.map((chat) => (chat.id === chatId ? mapped : chat)),
+      )
+
+      await refreshChats()
+      return mapped
+    },
+    [chatsKey, queryClient, refreshChats, user],
+  )
+
+  const deleteChat = useCallback<ChatContextValue['deleteChat']>(
+    async (chatId) => {
+      if (!user || !chatId || chatId.startsWith('temp-')) return false
+
+      const { error } = await supabase
+        .from('chats')
+        .delete()
+        .eq('id', chatId)
+        .eq('user_id', user.id)
+
+      if (error) {
+        console.error('Failed to delete chat', error)
+        return false
+      }
+
+      queryClient.setQueryData<ChatSummary[]>(chatsKey, (old = []) =>
+        old.filter((chat) => chat.id !== chatId),
+      )
+      queryClient.removeQueries({ queryKey: messagesKey(chatId) })
+
+      if (selectedChatId === chatId) {
+        setSelectedChatId(null)
+        setActiveStream((current) => (current?.chatId === chatId ? null : current))
+      }
+
+      await refreshChats()
+      return true
+    },
+    [chatsKey, messagesKey, queryClient, refreshChats, selectedChatId, user],
+  )
+
+  const updateMessageFeedback = useCallback<ChatContextValue['updateMessageFeedback']>(
+    async (messageId, chatId, feedback) => {
+      if (!user || !chatId || chatId.startsWith('temp-')) return false
+
+      const updates = feedback
+        ? {
+            feedback,
+            feedback_user_id: user.id,
+            feedback_updated_at: new Date().toISOString(),
+          }
+        : {
+            feedback: null,
+            feedback_user_id: null,
+            feedback_updated_at: null,
+          }
+
+      const { data, error } = await supabase
+        .from('chat_messages')
+        .update(updates)
+        .eq('id', messageId)
+        .eq('chat_id', chatId)
+        .select('*')
+        .single<ChatMessage>()
+
+      if (error || !data) {
+        console.error('Failed to update message feedback', error)
+        return false
+      }
+
+      const normalized = hydrateMessage(data, { pending: false })
+
+      queryClient.setQueryData<ChatMessage[]>(messagesKey(chatId), (old = []) =>
+        sortMessages(old.map((message) => (message.id === messageId ? normalized : message))),
+      )
+
+      await refreshMessages(chatId)
+      return true
+    },
+    [messagesKey, queryClient, refreshMessages, user],
+  )
+
   const value: ChatContextValue = useMemo(
     () => ({
       starredChats,
@@ -195,27 +537,37 @@ export function ChatProvider({ children }: ChatProviderProps) {
       chatsLoading,
       messagesLoading,
       messages,
+      activeStream,
       selectChat,
       createChat,
       refreshChats,
       refreshMessages,
       sendMessage,
+      updateMessageFeedback,
+      renameChat,
+      toggleStar,
+      deleteChat,
       reset,
     }),
     [
+      activeStream,
       chatsLoading,
       createChat,
+      deleteChat,
       messages,
       messagesLoading,
       recentChats,
       refreshChats,
       refreshMessages,
+      renameChat,
       reset,
       selectChat,
       sendMessage,
       selectedChat,
       selectedChatId,
       starredChats,
+      toggleStar,
+      updateMessageFeedback,
     ],
   )
 
