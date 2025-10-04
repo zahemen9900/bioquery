@@ -32,7 +32,7 @@ export function TestimonialHome() {
             </div>
             <div className="mt-5 flex w-full flex-col items-start md:mt-6 md:w-fit md:flex-row md:items-center">
               <img
-                src="https://d22po4pjz3o32e.cloudfront.net/placeholder-image.svg"
+                src="/nerrd.jpg"
                 alt="Testimonial avatar"
                 className="mb-4 size-12 min-h-12 min-w-12 rounded-full object-cover md:mr-4 md:mb-0"
               />
@@ -57,7 +57,7 @@ export function TestimonialHome() {
             </div>
             <div className="mt-5 flex w-full flex-col items-start md:mt-6 md:w-fit md:flex-row md:items-center">
               <img
-                src="https://d22po4pjz3o32e.cloudfront.net/placeholder-image.svg"
+                src="nerd.jpg"
                 alt="Testimonial avatar"
                 className="mb-4 size-12 min-h-12 min-w-12 rounded-full object-cover md:mr-4 md:mb-0"
               />
@@ -82,7 +82,7 @@ export function TestimonialHome() {
             </div>
             <div className="mt-5 flex w-full flex-col items-start md:mt-6 md:w-fit md:flex-row md:items-center">
               <img
-                src="https://d22po4pjz3o32e.cloudfront.net/placeholder-image.svg"
+                src="/nerdd.jpg"
                 alt="Testimonial avatar"
                 className="mb-4 size-12 min-h-12 min-w-12 rounded-full object-cover md:mr-4 md:mb-0"
               />
