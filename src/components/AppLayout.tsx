@@ -9,11 +9,12 @@ import {
   HiOutlineCog6Tooth,
   HiOutlinePencilSquare,
   HiOutlineSquares2X2,
+  HiOutlineSparkles,
   HiOutlineStar,
 } from 'react-icons/hi2'
 
-import { useAuth } from '@/contexts/auth-context-types'
-import { useChat } from '@/contexts/chat-context-types'
+import { useAuth } from '../contexts/auth-context-types'
+import { useChat, type ChatSummary } from '../contexts/chat-context-types'
 import supabase from '@/lib/supabase-client'
 import { cn } from '@/lib/utils'
 
@@ -37,7 +38,7 @@ const CHAT_SECTIONS: Array<{ label: string; key: 'starredChats' | 'recentChats' 
 export default function AppLayout({ children }: AppLayoutProps) {
   const navigate = useNavigate()
   const location = useLocation()
-  const { user } = useAuth()
+  const { user, profile } = useAuth()
   const {
     starredChats,
     recentChats,
@@ -52,8 +53,9 @@ export default function AppLayout({ children }: AppLayoutProps) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
 
-  const userName = (user?.user_metadata?.full_name as string | undefined)?.trim() || user?.email || 'Explorer'
-  const userEmail = user?.email ?? 'Signed in'
+  const userName = profile?.nickname?.trim() || profile?.full_name?.trim() || (user?.user_metadata?.full_name as string | undefined)?.trim() || user?.email || 'Explorer'
+  const userEmail = profile?.email ?? user?.email ?? 'Signed in'
+  const avatarUrl = profile?.avatar_url ?? (user?.user_metadata?.avatar_url as string | undefined) ?? (user?.user_metadata?.picture as string | undefined) ?? undefined
 
   const getInitials = (name: string) =>
     name
@@ -124,32 +126,50 @@ export default function AppLayout({ children }: AppLayoutProps) {
 
       <div className={cn('flex-1 overflow-hidden px-4 py-5', collapsed && 'px-2')}>
         <div className={cn('flex h-full flex-col gap-6', collapsed && 'items-center gap-4')}>
-          <Link
-            to="/collections"
-            onClick={() => setSidebarOpen(false)}
-            className={cn(
-              'flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold transition-colors',
-              location.pathname === '/collections'
-                ? 'bg-biosphere-500/10 text-biosphere-500'
-                : 'text-scheme-text hover:bg-scheme-muted',
-              collapsed && 'justify-center px-0',
-            )}
-            title="Collections"
-          >
-            <HiOutlineSquares2X2 className="h-5 w-5" />
-            {!collapsed && <span>Collections</span>}
-          </Link>
+          <div className="flex w-full flex-col gap-3">
+            <Link
+              to="/discover"
+              onClick={() => setSidebarOpen(false)}
+              className={cn(
+                'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
+                location.pathname.startsWith('/discover')
+                  ? 'bg-biosphere-500/20 text-biosphere-500 shadow-sm'
+                  : 'text-scheme-text hover:bg-scheme-muted/70 hover:text-scheme-text',
+                collapsed && 'justify-center px-0',
+              )}
+              title="Discover"
+            >
+              <HiOutlineSparkles className="h-5 w-5" />
+              {!collapsed && <span>Discover</span>}
+            </Link>
+
+            <Link
+              to="/collections"
+              onClick={() => setSidebarOpen(false)}
+              className={cn(
+                'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
+                location.pathname === '/collections'
+                  ? 'bg-biosphere-500/20 text-biosphere-500 shadow-sm'
+                  : 'text-scheme-text hover:bg-scheme-muted/70',
+                collapsed && 'justify-center px-0',
+              )}
+              title="Collections"
+            >
+              <HiOutlineSquares2X2 className="h-5 w-5" />
+              {!collapsed && <span>Collections</span>}
+            </Link>
+          </div>
 
           <div className="w-full space-y-3">
-            {!collapsed && <h3 className="px-1 text-xs font-semibold uppercase tracking-wide text-scheme-muted-text">Chats</h3>}
+            {!collapsed && <h3 className="px-1 text-sm font-semibold uppercase tracking-wide text-scheme-muted-text">Chats</h3>}
             <Button
               onClick={handleCreateChat}
               iconLeft={<HiOutlinePencilSquare className="h-4 w-4" />}
               className={cn(
-                'w-full bg-gradient-to-r from-biosphere-500 to-cosmic-500 text-space-900 shadow-lg hover:from-biosphere-500/90 hover:to-cosmic-500/90',
-                collapsed ? 'h-11 justify-center px-0' : 'h-12',
+                'w-full rounded-lg bg-gradient-to-r from-biosphere-500 to-cosmic-500 text-sm font-semibold text-space-900 shadow hover:from-biosphere-500/90 hover:to-cosmic-500/90',
+                collapsed ? 'h-10 justify-center px-0' : 'h-11',
               )}
-              size={collapsed ? 'icon' : 'lg'}
+              size={collapsed ? 'icon' : 'default'}
               title="Start a new chat"
               aria-label="Start a new chat"
             >
@@ -179,7 +199,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
                       </div>
                     ) : (
                       <div className="space-y-1.5">
-                        {items.map((chat) => {
+                        {items.map((chat: ChatSummary) => {
                           const isActive = chat.id === selectedChatId
                           return (
                             <button
@@ -187,23 +207,23 @@ export default function AppLayout({ children }: AppLayoutProps) {
                               type="button"
                               onClick={() => handleSelectChat(chat.id)}
                               className={cn(
-                                'group flex w-full items-center gap-3 rounded-xl px-3.5 py-2 text-left text-sm transition-colors',
+                                'group flex w-full items-center gap-3 rounded-lg px-2.5 py-2 text-left text-sm transition-colors',
                                 isActive
-                                  ? 'bg-biosphere-500/15 text-biosphere-500'
-                                  : 'text-scheme-text hover:bg-scheme-muted',
+                                  ? 'bg-biosphere-500/25 text-biosphere-600 ring-1 ring-inset ring-biosphere-500/40'
+                                  : 'text-scheme-text hover:bg-scheme-muted/60',
                                 collapsed && 'justify-center px-0',
                               )}
                               title={chat.chat_name ?? 'Untitled chat'}
                             >
-                              <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-scheme-surface">
+                              <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-scheme-surface/70 text-scheme-muted-text">
                                 {chat.is_starred ? (
                                   <HiMiniStar className="h-4 w-4 text-biosphere-500" />
                                 ) : (
-                                  <HiOutlineStar className="h-4 w-4 text-scheme-muted-text" />
+                                  <HiOutlineStar className="h-4 w-4" />
                                 )}
                               </span>
                               {!collapsed && (
-                                <span className="flex-1 truncate font-medium">
+                                <span className="flex-1 truncate font-medium leading-tight" style={{ maxWidth: '10.5rem' }}>
                                   {chat.chat_name?.trim() || 'Untitled chat'}
                                 </span>
                               )}
@@ -231,7 +251,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
           <PopoverTrigger asChild>
             <button className={cn('flex w-full items-center gap-3 rounded-xl px-3 py-2 transition-colors hover:bg-scheme-muted', collapsed && 'justify-center px-0')}>
               <Avatar className="h-9 w-9">
-                <AvatarImage src={(user?.user_metadata?.avatar_url as string | undefined) || undefined} alt={userName} />
+                <AvatarImage src={avatarUrl} alt={userName} />
                 <AvatarFallback>{getInitials(userName)}</AvatarFallback>
               </Avatar>
               {!collapsed && (
@@ -246,7 +266,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
             <div className="space-y-2">
               <div className="flex items-center gap-3 pb-2">
                 <Avatar className="h-10 w-10">
-                  <AvatarImage src={(user?.user_metadata?.avatar_url as string | undefined) || undefined} alt={userName} />
+                  <AvatarImage src={avatarUrl} alt={userName} />
                   <AvatarFallback>{getInitials(userName)}</AvatarFallback>
                 </Avatar>
                 <div>

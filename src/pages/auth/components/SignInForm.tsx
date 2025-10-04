@@ -40,8 +40,8 @@ export function SignInForm({ onSwitchToSignUp }: { onSwitchToSignUp: () => void 
       return
     }
 
-    setStatus({ type: 'success', message: 'Welcome back! Redirecting…' })
-    setTimeout(() => navigate('/discover'), 800)
+  setStatus({ type: 'success', message: 'Welcome back! Redirecting…' })
+  setTimeout(() => navigate('/discover'), 800)
   }
 
   const handleGoogleSignIn = async () => {
@@ -49,7 +49,7 @@ export function SignInForm({ onSwitchToSignUp }: { onSwitchToSignUp: () => void 
     const origin = window.location.origin
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: { redirectTo: `${origin}/auth?next=/discover` },
+      options: { redirectTo: `${origin}/auth` },
     })
     if (error) setStatus({ type: 'error', message: error.message })
   }

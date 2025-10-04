@@ -11,7 +11,6 @@ import {
   HiOutlineUser,
   HiXCircle,
 } from 'react-icons/hi2'
-import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'motion/react'
 
 import { Button } from '@/components/ui/button'
@@ -45,15 +44,9 @@ const passwordScore = (value: string): PasswordStrength => {
 }
 
 export function SignUpForm({ onSwitchToSignIn }: { onSwitchToSignIn: () => void }) {
-  const [formData, setFormData] = useState({
-    fullName: '',
-    email: '',
-    password: '',
-    confirmPassword: '',
-  })
+  const [formData, setFormData] = useState({ fullName: '', email: '', password: '', confirmPassword: '' })
   const [status, setStatus] = useState<AuthStatus>(initialStatus)
   const [loading, setLoading] = useState(false)
-  const navigate = useNavigate()
 
   const strength = useMemo(() => passwordScore(formData.password), [formData.password])
   const passwordsMatch = formData.password && formData.confirmPassword && formData.password === formData.confirmPassword
@@ -86,10 +79,10 @@ export function SignUpForm({ onSwitchToSignIn }: { onSwitchToSignIn: () => void 
       return
     }
 
-    setStatus({ type: 'success', message: '🎉 Account created! Welcome to BioQuery.' })
+    setStatus({ type: 'success', message: '🎉 Account created! Check your inbox to verify your email.' })
     setFormData({ fullName: '', email: '', password: '', confirmPassword: '' })
     setLoading(false)
-    setTimeout(() => navigate('/discover'), 1500)
+    setTimeout(() => onSwitchToSignIn(), 2500)
   }
 
   const handleGoogleSignUp = async () => {
@@ -97,7 +90,7 @@ export function SignUpForm({ onSwitchToSignIn }: { onSwitchToSignIn: () => void 
     const origin = window.location.origin
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: { redirectTo: `${origin}/auth?next=/discover` },
+      options: { redirectTo: `${origin}/auth` },
     })
     if (error) setStatus({ type: 'error', message: error.message })
   }

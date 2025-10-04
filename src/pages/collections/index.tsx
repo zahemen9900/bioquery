@@ -1,229 +1,231 @@
-import { useState } from 'react';
-import { motion } from 'motion/react';
-import {
-  HiOutlineDocumentText,
-  HiOutlineChartBar,
-  HiOutlineSquares2X2,
-  HiOutlineMagnifyingGlass,
-  HiOutlineAdjustmentsHorizontal,
-} from 'react-icons/hi2';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Card } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { ScrollArea } from '@/components/ui/scroll-area';
+import { useEffect, useMemo, useState } from 'react'
+import { motion } from 'motion/react'
+import { useNavigate } from 'react-router-dom'
 
-interface Artifact {
-  id: string;
-  type: 'note' | 'graph' | 'visualization';
-  title: string;
-  description: string;
-  sourceCount: number;
-  tags: string[];
-  createdAt: string;
-  thumbnail?: string;
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Button } from '@/components/ui/button'
+import { Separator } from '@/components/ui/separator'
+import supabase from '@/lib/supabase-client'
+import { useAuth } from '@/contexts/auth-context-types'
+import { cn } from '@/lib/utils'
+
+import CollectionCard, { type ArtifactKind, type CollectionArtifact } from './components/CollectionCard'
+
+type ChatArtifactRow = {
+	id: number
+	chat_id: string
+	artifact_type: string
+	title: string | null
+	content: string | null
+	preview_image_url: string | null
+	metadata: Record<string, unknown> | null
+	created_at: string
+	chats?: { chat_name: string | null } | Array<{ chat_name: string | null }>
 }
 
+type TabOption = {
+	value: 'all' | ArtifactKind
+	label: string
+	description: string
+}
+
+const TABS: TabOption[] = [
+	{ value: 'all', label: 'All', description: 'Every insight you have saved so far.' },
+	{ value: 'summary', label: 'Notes', description: 'Executive briefings crafted from your chats.' },
+	{ value: 'visualization', label: 'Visualizations', description: 'Graphs and diagrams generated on demand.' },
+	{ value: 'document', label: 'References', description: 'Documents and curated source bundles.' },
+	{ value: 'dataset', label: 'Datasets', description: 'Structured data extracts for further analysis.' },
+]
+
 export default function CollectionsPage() {
-  const [searchQuery, setSearchQuery] = useState('');
-  const [activeTab, setActiveTab] = useState('all');
+	const { user } = useAuth()
+		const navigate = useNavigate()
+	const [activeTab, setActiveTab] = useState<TabOption['value']>('all')
+	const [artifacts, setArtifacts] = useState<CollectionArtifact[]>([])
+	const [loading, setLoading] = useState(false)
+	const [error, setError] = useState<string | null>(null)
+	const [selectedArtifact, setSelectedArtifact] = useState<CollectionArtifact | null>(null)
 
-  // Mock artifacts - replace with data from Supabase
-  const mockArtifacts: Artifact[] = [
-    {
-      id: '1',
-      type: 'note',
-      title: 'Microgravity Effects on Plant Growth',
-      description: 'Comprehensive summary of root development studies conducted on ISS',
-      sourceCount: 12,
-      tags: ['Plants', 'ISS', 'Root Systems'],
-      createdAt: '2 hours ago',
-    },
-    {
-      id: '2',
-      type: 'graph',
-      title: 'Mars Mission Research Network',
-      description: 'Entity relationships between radiation studies and mission planning',
-      sourceCount: 24,
-      tags: ['Mars', 'Radiation', 'Mission Planning'],
-      createdAt: '1 day ago',
-    },
-    {
-      id: '3',
-      type: 'visualization',
-      title: 'Cell Division Timeline',
-      description: 'Temporal analysis of mitosis rates across multiple experiments',
-      sourceCount: 8,
-      tags: ['Cellular Biology', 'Mitosis'],
-      createdAt: '3 days ago',
-    },
-    {
-      id: '4',
-      type: 'note',
-      title: 'Bone Density Research Summary',
-      description: 'Key findings from long-duration spaceflight studies',
-      sourceCount: 15,
-      tags: ['Human Health', 'Skeletal System'],
-      createdAt: '5 days ago',
-    },
-  ];
+	useEffect(() => {
+		if (!user) return
 
-  const filteredArtifacts = mockArtifacts.filter((artifact) => {
-    const matchesSearch = artifact.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      artifact.description.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesTab = activeTab === 'all' || artifact.type === activeTab;
-    return matchesSearch && matchesTab;
-  });
+		let cancelled = false
+		const fetchArtifacts = async () => {
+			setLoading(true)
+			setError(null)
 
-  const getArtifactIcon = (type: Artifact['type']) => {
-    switch (type) {
-      case 'note':
-        return HiOutlineDocumentText;
-      case 'graph':
-        return HiOutlineSquares2X2;
-      case 'visualization':
-        return HiOutlineChartBar;
-    }
-  };
+			const { data, error: fetchError } = await supabase
+				.from('chat_artifacts')
+				.select(
+					`id, chat_id, artifact_type, title, content, preview_image_url, metadata, created_at,
+					 chats!inner (chat_name, user_id)`,
+				)
+				.eq('chats.user_id', user.id)
+				.order('created_at', { ascending: false })
 
-  const getArtifactColor = (type: Artifact['type']) => {
-    switch (type) {
-      case 'note':
-        return 'from-blue-500 to-cyan-500';
-      case 'graph':
-        return 'from-purple-500 to-pink-500';
-      case 'visualization':
-        return 'from-green-500 to-emerald-500';
-    }
-  };
+			if (fetchError) {
+				console.error('Failed to load artifacts', fetchError)
+				if (!cancelled) {
+					setError('We could not load your collections. Please try again shortly.')
+					setArtifacts([])
+					setLoading(false)
+				}
+				return
+			}
 
-  const EmptyState = () => (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="flex flex-col items-center justify-center py-16 text-center"
-    >
-      <div className="mb-6 flex h-24 w-24 items-center justify-center rounded-3xl bg-scheme-muted">
-        <HiOutlineSquares2X2 className="h-12 w-12 text-scheme-muted-text" />
-      </div>
-      <h3 className="mb-2 text-xl font-semibold text-scheme-text">
-        No artifacts yet
-      </h3>
-      <p className="mb-6 max-w-md text-scheme-muted-text">
-        Start exploring in Discover and save summaries, visualizations, and knowledge graphs to build your collection.
-      </p>
-      <Button onClick={() => (window.location.href = '/discover')}>
-        Start Exploring
-      </Button>
-    </motion.div>
-  );
+					if (!cancelled) {
+					const rows = (data ?? []) as ChatArtifactRow[]
+						const mapped = rows.map((entry) => {
+							const chatRelation = Array.isArray(entry.chats) ? entry.chats[0] : entry.chats
+										const metadata = typeof entry.metadata === 'object' && entry.metadata !== null ? entry.metadata : {}
 
-  return (
-    <div className="h-full w-full">
-      <ScrollArea className="h-full">
-        <div className="mx-auto max-w-7xl px-4 py-8 md:px-6 lg:px-8">
-          {/* Header */}
-          <div className="mb-8 space-y-4">
-            <div>
-              <h1 className="text-3xl font-bold text-scheme-text md:text-4xl">
-                Collections
-              </h1>
-              <p className="mt-2 text-lg text-scheme-muted-text">
-                Your saved artifacts, insights, and discoveries
-              </p>
-            </div>
+										return {
+					id: entry.id,
+					chat_id: entry.chat_id,
+					artifact_type: entry.artifact_type as ArtifactKind,
+					title: entry.title,
+					content: entry.content,
+					preview_image_url: entry.preview_image_url,
+											metadata,
+					created_at: entry.created_at,
+								chat_name: chatRelation?.chat_name ?? null,
+							}
+						})
+				setArtifacts(mapped)
+				setLoading(false)
+			}
+		}
 
-            {/* Search and Filters */}
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div className="relative flex-1 sm:max-w-md">
-                <HiOutlineMagnifyingGlass className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-scheme-muted-text" />
-                <Input
-                  placeholder="Search artifacts..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
-              <Button variant="outline" className="w-full sm:w-auto">
-                <HiOutlineAdjustmentsHorizontal className="mr-2 h-4 w-4" />
-                Filters
-              </Button>
-            </div>
-          </div>
+		fetchArtifacts()
 
-          {/* Tabs */}
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-            <TabsList className="grid w-full grid-cols-4 lg:w-auto lg:inline-grid">
-              <TabsTrigger value="all">All</TabsTrigger>
-              <TabsTrigger value="note">Notes</TabsTrigger>
-              <TabsTrigger value="graph">Graphs</TabsTrigger>
-              <TabsTrigger value="visualization">Visualizations</TabsTrigger>
-            </TabsList>
+		return () => {
+			cancelled = true
+		}
+	}, [user])
 
-            <TabsContent value={activeTab} className="space-y-4">
-              {filteredArtifacts.length === 0 ? (
-                <EmptyState />
-              ) : (
-                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                  {filteredArtifacts.map((artifact, index) => {
-                    const Icon = getArtifactIcon(artifact.type);
-                    const colorClass = getArtifactColor(artifact.type);
+	const filteredArtifacts = useMemo(() => {
+		if (activeTab === 'all') return artifacts
+		return artifacts.filter((artifact) => artifact.artifact_type === activeTab)
+	}, [activeTab, artifacts])
 
-                    return (
-                      <motion.div
-                        key={artifact.id}
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: index * 0.05 }}
-                      >
-                        <Card className="group h-full cursor-pointer transition-all hover:border-biosphere-500 hover:shadow-xl">
-                          <div className="p-5 space-y-4">
-                            {/* Icon and Type */}
-                            <div className="flex items-start justify-between">
-                              <div className={`flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br ${colorClass}`}>
-                                <Icon className="h-6 w-6 text-white" />
-                              </div>
-                              <Badge variant="secondary" className="capitalize">
-                                {artifact.type}
-                              </Badge>
-                            </div>
+	const currentTab = TABS.find((tab) => tab.value === activeTab) ?? TABS[0]
 
-                            {/* Content */}
-                            <div className="space-y-2">
-                              <h3 className="font-semibold text-scheme-text line-clamp-2 group-hover:text-biosphere-500 transition-colors">
-                                {artifact.title}
-                              </h3>
-                              <p className="text-sm text-scheme-muted-text line-clamp-2">
-                                {artifact.description}
-                              </p>
-                            </div>
+	return (
+		<div className="relative flex h-full flex-1 flex-col overflow-hidden bg-scheme-background">
+			<div className="pointer-events-none absolute inset-x-0 top-0 h-64 bg-gradient-to-b from-biosphere-500/10 via-scheme-background to-transparent" aria-hidden />
 
-                            {/* Tags */}
-                            <div className="flex flex-wrap gap-1.5">
-                              {artifact.tags.slice(0, 3).map((tag, i) => (
-                                <Badge key={i} variant="outline" className="text-xs">
-                                  {tag}
-                                </Badge>
-                              ))}
-                            </div>
+			<section className="relative border-b border-scheme-border/60 px-6 py-8">
+				<div className="mx-auto flex w-full max-w-5xl flex-col gap-4">
+					<div className="flex flex-wrap items-center justify-between gap-4">
+						<div>
+							<span className="text-xs font-semibold uppercase tracking-[0.2em] text-biosphere-400">Collections</span>
+							<h1 className="mt-3 text-3xl font-semibold text-scheme-text md:text-4xl">Your BioQuery library</h1>
+							<p className="mt-2 max-w-2xl text-sm text-scheme-muted-text md:text-base">
+								Every artifact you create—notes, graphs, datasets—lives here. Re-open any insight and continue the conversation with BioQuery.
+							</p>
+						</div>
+									<Button
+										variant="secondary"
+										className="rounded-full border border-scheme-border/60 bg-scheme-surface/80 text-scheme-muted-text"
+										disabled
+									>
+										Manage folders (coming soon)
+									</Button>
+					</div>
 
-                            {/* Footer */}
-                            <div className="flex items-center justify-between pt-2 text-xs text-scheme-muted-text">
-                              <span>{artifact.sourceCount} sources</span>
-                              <span>{artifact.createdAt}</span>
-                            </div>
-                          </div>
-                        </Card>
-                      </motion.div>
-                    );
-                  })}
-                </div>
-              )}
-            </TabsContent>
-          </Tabs>
-        </div>
-      </ScrollArea>
-    </div>
-  );
+					<Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as TabOption['value'])}>
+						<TabsList className="bg-scheme-surface/80 shadow-xl shadow-space-900/20">
+							{TABS.map((tab) => (
+								<TabsTrigger
+									key={tab.value}
+									value={tab.value}
+									className={cn('rounded-full px-5 py-2 text-sm font-semibold transition', activeTab === tab.value ? 'bg-biosphere-500 text-space-900 shadow-md' : 'text-scheme-muted-text hover:text-scheme-text')}
+								>
+									{tab.label}
+								</TabsTrigger>
+							))}
+						</TabsList>
+
+						<TabsContent value={activeTab} className="mt-8">
+							<p className="text-sm text-scheme-muted-text">{currentTab.description}</p>
+						</TabsContent>
+					</Tabs>
+				</div>
+			</section>
+
+			<div className="relative flex-1 overflow-y-auto px-6 py-10">
+				<div className="mx-auto flex w-full max-w-5xl flex-col gap-8">
+					{error ? (
+						<div className="rounded-2xl border border-rose-500/40 bg-rose-500/10 px-6 py-5 text-sm text-rose-100">
+							{error}
+						</div>
+					) : null}
+
+					{loading ? (
+						<div className="flex flex-col items-center gap-4 py-20 text-scheme-muted-text">
+							<div className="h-12 w-12 animate-spin rounded-full border-4 border-biosphere-500/70 border-t-transparent" />
+							<p className="text-sm">Loading your archived artifacts…</p>
+						</div>
+					) : null}
+
+					{!loading && filteredArtifacts.length === 0 ? (
+						<div className="rounded-3xl border border-dashed border-scheme-border/60 bg-scheme-surface/80 px-10 py-16 text-center shadow-inner">
+							<motion.div
+								initial={{ opacity: 0, y: 12 }}
+								animate={{ opacity: 1, y: 0 }}
+								transition={{ duration: 0.35 }}
+								className="mx-auto flex max-w-xl flex-col items-center gap-4"
+							>
+								<div className="rounded-full bg-biosphere-500/15 px-4 py-2 text-sm font-semibold text-biosphere-400">
+									Empty orbit
+								</div>
+								<h2 className="text-2xl font-semibold text-scheme-text">No artifacts in this category yet</h2>
+								<p className="text-sm text-scheme-muted-text">
+									Ask BioQuery to create summaries, datasets, or graphs in Discover and they will appear here instantly.
+								</p>
+												<Button className="mt-2 rounded-full px-6" onClick={() => navigate('/discover')}>
+									Open Discover
+								</Button>
+							</motion.div>
+						</div>
+					) : null}
+
+					<div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
+						{filteredArtifacts.map((artifact) => (
+							<CollectionCard key={artifact.id} artifact={artifact} onOpen={setSelectedArtifact} />
+						))}
+					</div>
+				</div>
+			</div>
+
+			<Dialog open={!!selectedArtifact} onOpenChange={(open) => !open && setSelectedArtifact(null)}>
+				<DialogContent className="max-w-3xl">
+					{selectedArtifact ? (
+						<div className="space-y-6">
+							<DialogHeader>
+								<DialogTitle>{selectedArtifact.title ?? 'Untitled artifact'}</DialogTitle>
+								<DialogDescription>
+									Saved {new Date(selectedArtifact.created_at).toLocaleString()} • Source chat: {selectedArtifact.chat_name ?? 'Unknown'}
+								</DialogDescription>
+							</DialogHeader>
+							{selectedArtifact.preview_image_url ? (
+								<div className="overflow-hidden rounded-2xl border border-scheme-border/60">
+									<img
+										src={selectedArtifact.preview_image_url}
+										alt={selectedArtifact.title ?? 'Artifact preview'}
+										className="w-full object-cover"
+									/>
+								</div>
+							) : null}
+							<Separator />
+							<div className="max-h-[60vh] overflow-y-auto whitespace-pre-line text-sm leading-relaxed text-scheme-text/90">
+								{selectedArtifact.content ?? 'No content available yet.'}
+							</div>
+						</div>
+					) : null}
+				</DialogContent>
+			</Dialog>
+		</div>
+	)
 }

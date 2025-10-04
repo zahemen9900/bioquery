@@ -161,16 +161,8 @@
     color: var(--color-text-muted);
   }
 
-  .text-scheme-muted-text {
-    color: var(--color-text-muted);
-  }
-
   .text-scheme-subtle {
     color: var(--color-text-subtle);
-  }
-
-  .bg-scheme-muted {
-    background-color: var(--color-surface-hover);
   }
 
   .bg-neutral-darkest {
