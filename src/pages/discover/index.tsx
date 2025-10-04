@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom'
 import { AnimatePresence, motion } from 'motion/react'
 import {
   HiMiniChevronDown,
+  HiMiniBars3CenterLeft,
   HiMiniPencil,
   HiMiniPencilSquare,
   HiMiniSparkles,
@@ -12,6 +13,7 @@ import {
 } from 'react-icons/hi2'
 
 import { useChat } from '@/contexts/chat-context-types'
+import { useAppShell } from '@/contexts/app-shell-context'
 import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Input } from '@/components/ui/input'
@@ -44,6 +46,9 @@ export default function DiscoverPage() {
   const [menuError, setMenuError] = useState<string | null>(null)
   const [menuBusy, setMenuBusy] = useState(false)
   const [deleteBusy, setDeleteBusy] = useState(false)
+  const { openMobileSidebar } = useAppShell()
+  const mobileMenuButtonClasses =
+    'md:hidden inline-flex h-9 w-9 items-center justify-center rounded-lg bg-scheme-surface/80 text-scheme-text shadow-sm ring-1 ring-inset ring-scheme-border/60 transition hover:text-biosphere-500 hover:ring-biosphere-500/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-biosphere-500/60'
 
   useEffect(() => {
     const chatParam = searchParams.get('chat')
@@ -162,81 +167,97 @@ export default function DiscoverPage() {
       {/* Compact header only shown in conversation mode */}
       {showConversation && (
         <section className="border-b border-scheme-border/40 bg-scheme-surface/50 px-4 py-3 backdrop-blur-sm">
-          <div className="mx-auto flex w-full max-w-4xl items-center justify-between">
-            <Popover open={menuOpen} onOpenChange={(open) => {
-              setMenuError(null)
-              setMenuOpen(open)
-            }}>
-              <PopoverTrigger asChild>
-                <button
-                  type="button"
-                  className="group inline-flex items-center gap-2 rounded-lg bg-transparent px-2 py-1 text-left text-sm font-medium text-scheme-text transition hover:bg-scheme-surface-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-biosphere-500"
-                  aria-haspopup="menu"
-                  aria-expanded={menuOpen}
-                >
-                  {selectedChat?.is_starred ? (
-                    <HiMiniStar className="h-4 w-4 text-amber-400" />
-                  ) : (
-                    <HiMiniSparkles className="h-4 w-4 text-biosphere-500" />
-                  )}
-                  <span>{displayChatName}</span>
-                  <HiMiniChevronDown className="h-4 w-4 text-scheme-muted-text transition group-hover:text-scheme-text" />
-                </button>
-              </PopoverTrigger>
-              <PopoverContent className="w-80">
-                <div className="space-y-4">
-                  <div className="space-y-1">
-                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-scheme-muted-text">Conversation name</p>
-                    <Input
-                      value={chatNameDraft}
-                      onChange={(event) => setChatNameDraft(event.target.value)}
-                      placeholder="Untitled chat"
-                      disabled={!isPersistedChat || menuBusy}
-                    />
-                    {!isPersistedChat ? (
-                      <p className="text-xs text-scheme-muted-text/80">Options unlock once the first assistant reply is saved.</p>
+          <div className="mx-auto flex w-full max-w-4xl items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={openMobileSidebar}
+                className={mobileMenuButtonClasses}
+                aria-label="Open navigation"
+              >
+                <HiMiniBars3CenterLeft className="h-5 w-5" />
+              </button>
+
+              <Popover
+                open={menuOpen}
+                onOpenChange={(open) => {
+                  setMenuError(null)
+                  setMenuOpen(open)
+                }}
+              >
+                <PopoverTrigger asChild>
+                  <button
+                    type="button"
+                    className="group inline-flex items-center gap-2 rounded-lg bg-transparent px-2 py-1 text-left text-sm font-medium text-scheme-text transition hover:bg-scheme-surface-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-biosphere-500"
+                    aria-haspopup="menu"
+                    aria-expanded={menuOpen}
+                  >
+                    {selectedChat?.is_starred ? (
+                      <HiMiniStar className="h-4 w-4 text-amber-400" />
+                    ) : (
+                      <HiMiniSparkles className="h-4 w-4 text-biosphere-500" />
+                    )}
+                    <span>{displayChatName}</span>
+                    <HiMiniChevronDown className="h-4 w-4 text-scheme-muted-text transition group-hover:text-scheme-text" />
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent className="w-80">
+                  <div className="space-y-4">
+                    <div className="space-y-1">
+                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-scheme-muted-text">Conversation name</p>
+                      <Input
+                        value={chatNameDraft}
+                        onChange={(event) => setChatNameDraft(event.target.value)}
+                        placeholder="Untitled chat"
+                        disabled={!isPersistedChat || menuBusy}
+                      />
+                      {!isPersistedChat ? (
+                        <p className="text-xs text-scheme-muted-text/80">Options unlock once the first assistant reply is saved.</p>
+                      ) : null}
+                    </div>
+
+                    {menuError ? (
+                      <p className="rounded-md border border-red-500/50 bg-red-500/10 px-3 py-2 text-xs text-red-200">{menuError}</p>
                     ) : null}
-                  </div>
 
-                  {menuError ? <p className="rounded-md border border-red-500/50 bg-red-500/10 px-3 py-2 text-xs text-red-200">{menuError}</p> : null}
+                    <div className="flex items-center justify-between gap-2">
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={handleRenameChat}
+                        disabled={!isPersistedChat || menuBusy}
+                        iconLeft={<HiMiniPencilSquare className="h-4 w-4" />}
+                      >
+                        Save name
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={handleToggleStar}
+                        disabled={!isPersistedChat || menuBusy}
+                        iconLeft={selectedChat?.is_starred ? <HiMiniStar className="h-4 w-4 text-amber-400" /> : <HiOutlineStar className="h-4 w-4" />}
+                        className="text-xs text-scheme-muted-text hover:text-amber-400"
+                      >
+                        {selectedChat?.is_starred ? 'Unstar' : 'Star chat'}
+                      </Button>
+                    </div>
 
-                  <div className="flex items-center justify-between gap-2">
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      onClick={handleRenameChat}
-                      disabled={!isPersistedChat || menuBusy}
-                      iconLeft={<HiMiniPencilSquare className="h-4 w-4" />}
-                    >
-                      Save name
-                    </Button>
+                    <Separator />
+
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={handleToggleStar}
-                      disabled={!isPersistedChat || menuBusy}
-                      iconLeft={selectedChat?.is_starred ? <HiMiniStar className="h-4 w-4 text-amber-400" /> : <HiOutlineStar className="h-4 w-4" />}
-                      className="text-xs text-scheme-muted-text hover:text-amber-400"
+                      onClick={handleDeleteChat}
+                      disabled={!isPersistedChat || deleteBusy}
+                      iconLeft={<HiMiniTrash className="h-4 w-4 text-red-400" />}
+                      className="w-full justify-start text-xs text-red-400 hover:text-red-300"
                     >
-                      {selectedChat?.is_starred ? 'Unstar' : 'Star chat'}
+                      Delete conversation
                     </Button>
                   </div>
-
-                  <Separator />
-
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={handleDeleteChat}
-                    disabled={!isPersistedChat || deleteBusy}
-                    iconLeft={<HiMiniTrash className="h-4 w-4 text-red-400" />}
-                    className="w-full justify-start text-xs text-red-400 hover:text-red-300"
-                  >
-                    Delete conversation
-                  </Button>
-                </div>
-              </PopoverContent>
-            </Popover>
+                </PopoverContent>
+              </Popover>
+            </div>
 
             <Button
               variant="ghost"
@@ -249,6 +270,19 @@ export default function DiscoverPage() {
             </Button>
           </div>
         </section>
+      )}
+
+      {!showConversation && (
+        <div className="px-4 pt-4 md:hidden">
+          <button
+            type="button"
+            onClick={openMobileSidebar}
+            className={mobileMenuButtonClasses}
+            aria-label="Open navigation"
+          >
+            <HiMiniBars3CenterLeft className="h-5 w-5" />
+          </button>
+        </div>
       )}
 
       {/* Main content area */}

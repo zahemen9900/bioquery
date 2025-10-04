@@ -1,7 +1,13 @@
 import { Children, useMemo, type ComponentPropsWithoutRef } from 'react'
 import ReactMarkdown from 'react-markdown'
 import type { Components } from 'react-markdown'
-import type { CodeProps } from 'react-markdown/lib/ast-to-react'
+// Define a lightweight local CodeProps type to avoid deep import that breaks builds
+// react-markdown does not export this path's types in ESM build tree for prod.
+type CodeProps = {
+  inline?: boolean
+  className?: string
+  children?: React.ReactNode
+} & Omit<React.HTMLAttributes<HTMLElement>, 'children'>
 import remarkGfm from 'remark-gfm'
 import { cn } from '@/lib/utils'
 import type { GroundingSource } from '@/contexts/chat-context-types'

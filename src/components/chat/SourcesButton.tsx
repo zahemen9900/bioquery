@@ -3,7 +3,6 @@ import { HiMiniArrowTopRightOnSquare, HiMiniXMark } from 'react-icons/hi2'
 import type { GroundingSource } from '@/contexts/chat-context-types'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
-import { ScrollArea } from '@/components/ui/scroll-area'
 import { cn } from '@/lib/utils'
 
 function extractDomain(url: string | null): string | null {
@@ -90,8 +89,8 @@ export function SourcesButton({ sources, disabled }: SourcesButtonProps) {
             <HiMiniXMark className="h-4 w-4" />
           </button>
         </DialogClose>
-        <ScrollArea className="mt-4 max-h-[70vh] pr-1">
-          <div className="flex flex-col gap-3">
+        <div className="mt-4 max-h-[65vh] overflow-y-auto pr-1">
+          <div className="flex flex-col gap-3 pb-2">
           {sources.map((source) => {
             const domain = extractDomain(source.domain ?? source.url ?? null)
             const firstSnippet = source.supports.find((entry) => (entry.text ?? '').trim().length > 0)?.text?.trim()
@@ -112,9 +111,9 @@ export function SourcesButton({ sources, disabled }: SourcesButtonProps) {
                     <p className="text-sm font-semibold text-scheme-text">{title}</p>
                     <span className="text-xs font-semibold text-scheme-muted-text/80">#{source.id}</span>
                   </div>
-                  {domain ? <p className="text-xs text-scheme-muted-text/80">{domain}</p> : null}
+                  {domain ? <p className="text-xs text-scheme-text/70">{domain}</p> : null}
                   {firstSnippet ? (
-                    <p className="rounded-xl bg-scheme-surface/80 p-3 text-xs text-scheme-muted-text/90">“{firstSnippet}”</p>
+                    <p className="rounded-xl bg-scheme-surface/90 p-3 text-xs text-scheme-text/80">“{firstSnippet}”</p>
                   ) : null}
                 </div>
               </div>
@@ -144,7 +143,7 @@ export function SourcesButton({ sources, disabled }: SourcesButtonProps) {
             )
           })}
           </div>
-        </ScrollArea>
+        </div>
       </DialogContent>
     </Dialog>
   )

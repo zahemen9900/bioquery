@@ -2,12 +2,14 @@ import { useEffect, useMemo, useState } from 'react'
 import { motion } from 'motion/react'
 import { useNavigate } from 'react-router-dom'
 
+import { HiMiniBars3CenterLeft } from 'react-icons/hi2'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import supabase from '@/lib/supabase-client'
 import { useAuth } from '@/contexts/auth-context-types'
+import { useAppShell } from '@/contexts/app-shell-context'
 import { cn } from '@/lib/utils'
 
 import CollectionCard, { type ArtifactKind, type CollectionArtifact } from './components/CollectionCard'
@@ -40,6 +42,9 @@ const TABS: TabOption[] = [
 
 export default function CollectionsPage() {
 	const { user } = useAuth()
+	const { openMobileSidebar } = useAppShell()
+	const mobileMenuButtonClasses =
+		'inline-flex h-9 w-9 items-center justify-center rounded-lg bg-scheme-surface/80 text-scheme-text shadow-sm ring-1 ring-inset ring-scheme-border/60 transition hover:text-biosphere-500 hover:ring-biosphere-500/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-biosphere-500/60 md:hidden'
 		const navigate = useNavigate()
 	const [activeTab, setActiveTab] = useState<TabOption['value']>('all')
 	const [artifacts, setArtifacts] = useState<CollectionArtifact[]>([])
@@ -115,7 +120,15 @@ export default function CollectionsPage() {
 		<div className="relative flex h-full flex-1 flex-col overflow-hidden bg-scheme-background">
 			<div className="pointer-events-none absolute inset-x-0 top-0 h-64 bg-gradient-to-b from-biosphere-500/10 via-scheme-background to-transparent" aria-hidden />
 
-			<section className="relative border-b border-scheme-border/60 px-6 py-8">
+			<section className="relative border-b border-scheme-border/60 px-6 pb-8 pt-14 md:pt-8">
+				<button
+					type="button"
+					onClick={openMobileSidebar}
+					className={`${mobileMenuButtonClasses} absolute left-4 top-4`}
+					aria-label="Open navigation"
+				>
+					<HiMiniBars3CenterLeft className="h-5 w-5" />
+				</button>
 				<div className="mx-auto flex w-full max-w-5xl flex-col gap-4">
 					<div className="flex flex-wrap items-center justify-between gap-4">
 						<div>
