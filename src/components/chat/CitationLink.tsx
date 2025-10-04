@@ -69,7 +69,7 @@ export function CitationLink({ source, href, label }: CitationLinkProps) {
     closeTimerRef.current = window.setTimeout(() => {
       setOpen(false)
       closeTimerRef.current = null
-    }, 120)
+    }, 180) // slightly longer to allow small pointer gaps
   }, [clearCloseTimer])
 
   useEffect(() => {
@@ -121,7 +121,13 @@ export function CitationLink({ source, href, label }: CitationLinkProps) {
           <HiMiniLink className="h-3 w-3" />
         </span>
       </PopoverTrigger>
-      <PopoverContent onMouseEnter={handleEnter} onMouseLeave={scheduleClose} className="w-80 p-4">
+      <PopoverContent
+        onMouseEnter={handleEnter}
+        onMouseLeave={scheduleClose}
+        className="w-80 p-4"
+        align="start"
+        sideOffset={6}
+      >
         <div className="flex items-start gap-3">
           <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border border-scheme-border/60 bg-scheme-surface">
             {source.favicon ? (
@@ -133,22 +139,24 @@ export function CitationLink({ source, href, label }: CitationLinkProps) {
           <div className="flex-1 space-y-2">
             <div>
               <p className="text-sm font-semibold text-scheme-text">{title}</p>
-              {domain ? <p className="text-xs text-scheme-muted-text/80">{domain}</p> : null}
+              {domain ? <p className="text-xs text-scheme-text/70">{domain}</p> : null}
             </div>
             {supportSnippet ? (
-              <p className="rounded-xl bg-scheme-surface/80 p-2 text-xs text-scheme-muted-text/90">
+              <p className="rounded-xl bg-scheme-surface/90 p-2 text-xs text-scheme-text/80">
                 “{supportSnippet}”
               </p>
             ) : null}
-            <a
-              href={targetUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex items-center gap-1 text-xs font-semibold text-biosphere-500 transition hover:text-biosphere-400"
-            >
-              Open source
-              <HiMiniArrowTopRightOnSquare className="h-3.5 w-3.5" />
-            </a>
+            <div className="pt-1">
+              <a
+                href={targetUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1 rounded-lg bg-biosphere-500/10 px-2 py-1 text-xs font-semibold text-biosphere-500 transition hover:bg-biosphere-500/15 hover:text-biosphere-400"
+              >
+                Open source
+                <HiMiniArrowTopRightOnSquare className="h-3.5 w-3.5" />
+              </a>
+            </div>
           </div>
         </div>
       </PopoverContent>

@@ -1,7 +1,6 @@
-import { useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import {
-  HiBars3,
   HiMiniStar,
   HiOutlineArrowRightOnRectangle,
   HiOutlineChevronDoubleLeft,
@@ -15,6 +14,7 @@ import {
 
 import { useAuth } from '../contexts/auth-context-types'
 import { useChat, type ChatSummary } from '../contexts/chat-context-types'
+import { AppShellContext, type AppShellContextValue } from '@/contexts/app-shell-context'
 import supabase from '@/lib/supabase-client'
 import { cn } from '@/lib/utils'
 
@@ -52,6 +52,20 @@ export default function AppLayout({ children }: AppLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
+
+  const openMobileSidebar = useCallback(() => setSidebarOpen(true), [])
+  const closeMobileSidebar = useCallback(() => setSidebarOpen(false), [])
+  const toggleMobileSidebar = useCallback(() => setSidebarOpen((prev) => !prev), [])
+
+  const appShellValue = useMemo<AppShellContextValue>(
+    () => ({
+      isMobileSidebarOpen: sidebarOpen,
+      openMobileSidebar,
+      closeMobileSidebar,
+      toggleMobileSidebar,
+    }),
+    [closeMobileSidebar, openMobileSidebar, sidebarOpen, toggleMobileSidebar],
+  )
 
   const userName = profile?.nickname?.trim() || profile?.full_name?.trim() || (user?.user_metadata?.full_name as string | undefined)?.trim() || user?.email || 'Explorer'
   const userEmail = profile?.email ?? user?.email ?? 'Signed in'
@@ -298,7 +312,8 @@ export default function AppLayout({ children }: AppLayoutProps) {
   )
 
   return (
-    <div className="flex h-screen overflow-hidden bg-scheme-background">
+    <AppShellContext.Provider value={appShellValue}>
+      <div className="flex h-screen overflow-hidden bg-scheme-background">
       <aside
         className={cn(
           'hidden border-r border-scheme-border bg-scheme-surface transition-[width] duration-300 ease-in-out md:flex md:flex-col',
@@ -315,19 +330,6 @@ export default function AppLayout({ children }: AppLayoutProps) {
       </Sheet>
 
       <div className="flex flex-1 flex-col overflow-hidden">
-        <header className="flex h-16 items-center justify-between border-b border-scheme-border bg-scheme-surface px-4 md:hidden">
-          <button onClick={() => setSidebarOpen(true)} className="rounded-lg p-2 hover:bg-scheme-muted">
-            <HiBars3 className="h-6 w-6" />
-          </button>
-          <Link to="/discover" className="flex items-center gap-2" onClick={() => setSidebarOpen(false)}>
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-biosphere-500 to-cosmic-500">
-              <span className="text-lg font-bold text-white">B</span>
-            </div>
-            <span className="text-xl font-bold text-scheme-text">BioQuery</span>
-          </Link>
-          <div className="w-10" />
-        </header>
-
         <main className="flex-1 overflow-auto">{children}</main>
       </div>
 
@@ -351,5 +353,6 @@ export default function AppLayout({ children }: AppLayoutProps) {
         </DialogContent>
       </Dialog>
     </div>
+    </AppShellContext.Provider>
   )
 }
