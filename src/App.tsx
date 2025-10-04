@@ -5,6 +5,7 @@ import ProtectedRoute from '@/components/ProtectedRoute'
 import { AuthProvider } from '@/contexts/AuthContext'
 import { ChatProvider } from '@/contexts/ChatContext'
 import { ThemeProvider } from '@/contexts/ThemeContext'
+import { ToastProvider } from '@/components/ui/toast/ToastProvider'
 import AuthPage from '@/pages/auth'
 import CollectionsPage from '@/pages/collections'
 import DiscoverPage from '@/pages/discover'
@@ -23,25 +24,27 @@ function App() {
     <ThemeProvider>
       <AuthProvider>
         <ChatProvider>
-          <BrowserRouter>
-            <Routes>
-              <Route path="/" element={<HomePage />} />
-              <Route path="/auth" element={<AuthPage />} />
+          <ToastProvider>
+            <BrowserRouter>
+              <Routes>
+                <Route path="/" element={<HomePage />} />
+                <Route path="/auth" element={<AuthPage />} />
 
-              <Route
-                element={
-                  <ProtectedRoute>
-                    <DashboardLayout />
-                  </ProtectedRoute>
-                }
-              >
-                <Route path="/discover" element={<DiscoverPage />} />
-                <Route path="/collections" element={<CollectionsPage />} />
-              </Route>
+                <Route
+                  element={
+                    <ProtectedRoute>
+                      <DashboardLayout />
+                    </ProtectedRoute>
+                  }
+                >
+                  <Route path="/discover" element={<DiscoverPage />} />
+                  <Route path="/collections" element={<CollectionsPage />} />
+                </Route>
 
-              <Route path="*" element={<Navigate to="/" replace />} />
-            </Routes>
-          </BrowserRouter>
+                <Route path="*" element={<Navigate to="/" replace />} />
+              </Routes>
+            </BrowserRouter>
+          </ToastProvider>
         </ChatProvider>
       </AuthProvider>
     </ThemeProvider>

@@ -1,6 +1,6 @@
-import { useRef } from 'react'
-import { HiOutlinePaperAirplane } from 'react-icons/hi2'
-import { motion } from 'motion/react'
+import { useRef, useState } from 'react'
+import { HiMiniPlus, HiOutlinePaperAirplane } from 'react-icons/hi2'
+import { AnimatePresence, motion } from 'motion/react'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { cn } from '@/lib/utils'
@@ -23,6 +23,7 @@ export function ChatComposer({
   isHeroMode = false 
 }: ChatComposerProps) {
   const textareaRef = useRef<HTMLTextAreaElement | null>(null)
+  const [showAttachmentPreview, setShowAttachmentPreview] = useState(false)
 
   const handleKeyDown: React.KeyboardEventHandler<HTMLTextAreaElement> = (event) => {
     if (event.key === 'Enter' && !event.shiftKey) {
@@ -38,6 +39,11 @@ export function ChatComposer({
     textarea.style.height = 'auto'
     const newHeight = Math.min(textarea.scrollHeight, 7 * 24) // ~7 lines max
     textarea.style.height = `${newHeight}px`
+  }
+
+  const handleAttach = () => {
+    setShowAttachmentPreview(true)
+    textareaRef.current?.focus()
   }
 
   return (
@@ -56,6 +62,20 @@ export function ChatComposer({
             ? "border-scheme-border/50 p-2 shadow-2xl focus-within:border-biosphere-500/50 focus-within:shadow-biosphere-500/20" 
             : "border-scheme-border/40 p-1.5 focus-within:border-biosphere-500/40"
         )}>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className={cn(
+              'shrink-0 rounded-xl text-scheme-muted-text transition hover:text-scheme-text',
+              isHeroMode ? 'h-12 w-12' : 'h-10 w-10'
+            )}
+            onClick={handleAttach}
+            disabled={disabled}
+            aria-label="Attach documents"
+          >
+            <HiMiniPlus className="h-5 w-5" />
+          </Button>
           <Textarea
             id="discover-composer"
             ref={textareaRef}
@@ -84,6 +104,19 @@ export function ChatComposer({
             <HiOutlinePaperAirplane className="h-5 w-5" />
           </Button>
         </div>
+
+        <AnimatePresence>
+          {showAttachmentPreview && (
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 8 }}
+              className="mt-3 rounded-xl border border-dashed border-scheme-border/60 bg-scheme-surface/70 px-4 py-3 text-sm text-scheme-muted-text"
+            >
+              Attachment previews will appear here. File uploads are coming soon.
+            </motion.div>
+          )}
+        </AnimatePresence>
         
         {/* Helper text */}
         {!isHeroMode && (

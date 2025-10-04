@@ -18,9 +18,38 @@ type ChatMessage = {
   chat_id: string
   sender: 'user' | 'assistant' | 'system'
   content: string
+  thoughts: string | null
   tool_calls: Record<string, unknown>[]
   tool_contents: Record<string, unknown>[]
   created_at: string
+  pending?: boolean
+  feedback: 'like' | 'dislike' | null
+  feedback_user_id?: string | null
+  feedback_updated_at?: string | null
+  sources?: GroundingSource[]
+}
+
+type GroundingSupportSnippet = {
+  text: string | null
+  startIndex: number | null
+  endIndex: number | null
+}
+
+type GroundingSource = {
+  id: number
+  title: string | null
+  url: string | null
+  domain: string | null
+  favicon: string | null
+  retrievalStatus: string | null
+  supports: GroundingSupportSnippet[]
+}
+
+type ActiveStreamState = {
+  chatId: string
+  messageId: number
+  stage: 'pending' | 'thinking' | 'responding'
+  thoughts: string
 }
 
 type ChatContextValue = {
@@ -31,11 +60,16 @@ type ChatContextValue = {
   chatsLoading: boolean
   messagesLoading: boolean
   messages: ChatMessage[]
+  activeStream: ActiveStreamState | null
   selectChat: (chatId: string | null) => void
   createChat: (initialName?: string) => Promise<ChatSummary | null>
   refreshChats: () => Promise<void>
   refreshMessages: (chatId?: string) => Promise<void>
   sendMessage: (content: string, sender?: 'user' | 'assistant' | 'system', chatId?: string) => Promise<ChatMessage | null>
+  updateMessageFeedback: (messageId: number, chatId: string, feedback: 'like' | 'dislike' | null) => Promise<boolean>
+  renameChat: (chatId: string, chatName: string | null) => Promise<ChatSummary | null>
+  toggleStar: (chatId: string, isStarred: boolean) => Promise<ChatSummary | null>
+  deleteChat: (chatId: string) => Promise<boolean>
   reset: () => void
 }
 
@@ -47,4 +81,4 @@ export function useChat(): ChatContextValue {
   return context
 }
 
-export type { ChatSummary, ChatMessage, ChatContextValue }
+export type { ChatSummary, ChatMessage, ChatContextValue, ActiveStreamState, GroundingSource, GroundingSupportSnippet }
