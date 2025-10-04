@@ -3,29 +3,17 @@
 import { Button } from "@/components/ui/button";
 import { motion } from "motion/react";
 import { Link } from "react-router-dom";
-import Particles from "./Particles";
 
 export function HeaderHome() {
   return (
     <section className="relative overflow-hidden">
       {/* Gradient background effect */}
-      <div className="absolute inset-0 -z-10 overflow-hidden h-[600px] md:h-[700px] lg:h-[800px]">
-        {/* <div className="absolute -top-1/2 left-1/2 h-96 w-96 -translate-x-1/2 rounded-full bg-biosphere-500/20 blur-3xl dark:bg-biosphere-500/10" />
-        <div className="absolute top-1/4 right-0 h-96 w-96 translate-x-1/2 rounded-full bg-cosmic-500/20 blur-3xl dark:bg-cosmic-500/10" /> */}
-
-        <Particles
-          particleColors={["#ffffff", "#ffffff"]}
-          particleCount={2000}
-          particleSpread={10}
-          speed={0.1}
-          particleBaseSize={50}
-          moveParticlesOnHover={false}
-          alphaParticles={false}
-          disableRotation={false}
-        />
+      <div className="absolute inset-0 -z-10 overflow-hidden">
+        <div className="absolute -top-1/2 left-1/2 h-96 w-96 -translate-x-1/2 rounded-full bg-biosphere-500/20 blur-3xl dark:bg-biosphere-500/10" />
+        <div className="absolute top-1/4 right-0 h-96 w-96 translate-x-1/2 rounded-full bg-cosmic-500/20 blur-3xl dark:bg-cosmic-500/10" />
       </div>
-
-      <div className="px-[5%] py-16 md:py-20 lg:py-10">
+      
+      <div className="px-[5%] py-20 md:py-28 lg:py-36">
         <div className="container max-w-4xl">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -52,13 +40,13 @@ export function HeaderHome() {
               <br />
               <span className="gradient-text">Like Never Before</span>
             </h1>
-
+            
             <p className="text-medium max-w-2xl">
               BioQuery transforms decades of NASA research into actionable
               insights. Explore complex biological experiments with simple,
               powerful tools.
             </p>
-
+            
             <motion.div
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
@@ -70,12 +58,7 @@ export function HeaderHome() {
                   Get Started
                 </Button>
               </Link>
-              <Button
-                title="Learn"
-                variant="secondary"
-                size="lg"
-                className="min-w-40"
-              >
+              <Button title="Learn" variant="secondary" size="lg" className="min-w-40">
                 Watch Demo
               </Button>
             </motion.div>
@@ -88,32 +71,22 @@ export function HeaderHome() {
               className="mt-16 grid grid-cols-3 gap-8 md:gap-12"
             >
               <div>
-                <div className="text-3xl md:text-4xl font-bold text-scheme-text">
-                  10K+
-                </div>
-                <div className="text-sm text-scheme-subtle mt-1">
-                  Experiments
-                </div>
+                <div className="text-3xl md:text-4xl font-bold text-scheme-text">10K+</div>
+                <div className="text-sm text-scheme-subtle mt-1">Experiments</div>
               </div>
               <div>
-                <div className="text-3xl md:text-4xl font-bold text-scheme-text">
-                  50+
-                </div>
+                <div className="text-3xl md:text-4xl font-bold text-scheme-text">50+</div>
                 <div className="text-sm text-scheme-subtle mt-1">Missions</div>
               </div>
               <div>
-                <div className="text-3xl md:text-4xl font-bold text-scheme-text">
-                  30yrs
-                </div>
-                <div className="text-sm text-scheme-subtle mt-1">
-                  Of Research
-                </div>
+                <div className="text-3xl md:text-4xl font-bold text-scheme-text">30yrs</div>
+                <div className="text-sm text-scheme-subtle mt-1">Of Research</div>
               </div>
             </motion.div>
           </motion.div>
         </div>
       </div>
-
+      
       {/* Hero Image/Placeholder - You'll add a Lottie animation here */}
       <div className="px-[5%] pb-16 md:pb-24">
         <motion.div
