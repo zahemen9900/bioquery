@@ -1,4 +1,5 @@
 import { Children, useMemo, type ComponentPropsWithoutRef } from 'react'
+import type { ReactElement } from 'react'
 import ReactMarkdown from 'react-markdown'
 import type { Components } from 'react-markdown'
 // Define a lightweight local CodeProps type to avoid deep import that breaks builds
@@ -84,11 +85,24 @@ const renderTableCell = ({ children, ...props }: ComponentPropsWithoutRef<'td'>)
   </td>
 )
 
-const renderParagraph = ({ children, ...props }: ComponentPropsWithoutRef<'p'>) => (
-  <p {...props} className="chat-markdown-paragraph">
-    {children}
-  </p>
-)
+const renderParagraph = ({ children, ...props }: ComponentPropsWithoutRef<'p'>) => {
+  const childArray = Children.toArray(children)
+  const containsBlockChild = childArray.some((child) => {
+    if (typeof child !== 'object' || child === null) return false
+    const element = child as ReactElement
+    return element.type === 'pre'
+  })
+
+  if (containsBlockChild) {
+    return <>{childArray}</>
+  }
+
+  return (
+    <p {...props} className="chat-markdown-paragraph">
+      {children}
+    </p>
+  )
+}
 
 const createAnchorRenderer = (sources: Map<number, GroundingSource>) =>
   ({ children, href, className, ...props }: ComponentPropsWithoutRef<'a'>) => {

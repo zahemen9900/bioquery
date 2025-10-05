@@ -958,12 +958,14 @@ const executeArtifactTool = async ({
   userId,
   chatId,
   supabase,
+  toolCallId,
 }: {
   name: string
   args: Record<string, unknown>
   userId: string
   chatId: string
   supabase: SupabaseClient
+  toolCallId?: number
 }): Promise<ToolExecutionOutcome> => {
   try {
     switch (name) {
@@ -993,6 +995,7 @@ const executeArtifactTool = async ({
         if (typeof metadata.tool_name !== "string") {
           metadata.tool_name = name
         }
+        const toolCallRef = typeof toolCallId === "number" ? String(toolCallId) : null
 
         let generatedImage: GeneratedImageAssetPayload | null = null
 
@@ -1041,6 +1044,8 @@ const executeArtifactTool = async ({
         const insertPayload = {
           user_id: userId,
           chat_id: chatId,
+          tool_name: name,
+          tool_call_id: toolCallRef,
           document_type: documentType,
           title,
           body,
@@ -1391,9 +1396,11 @@ const executeArtifactTool = async ({
         }
 
         const row = data as ChatArtifactRow
+        const artifactType = row.artifact_type
         const artifact = {
           id: row.id,
-          artifact_type: row.artifact_type,
+          type: artifactType,
+          artifact_type: artifactType,
           title: row.title,
           tags: row.tags ?? [],
           summary: row.summary,
@@ -1460,9 +1467,11 @@ const executeArtifactTool = async ({
         }
 
         const row = data as ChatArtifactRow
+        const artifactType = row.artifact_type
         const artifact = {
           id: row.id,
-          artifact_type: row.artifact_type,
+          type: artifactType,
+          artifact_type: artifactType,
           title: row.title,
           tags: row.tags ?? [],
           summary: row.summary,
@@ -1555,10 +1564,12 @@ const executeArtifactTool = async ({
         }
 
         const row = data as ChatArtifactRow
+        const artifactType = row.artifact_type
         const imageCount = enrichedSections.filter((section) => section.image_link).length
         const artifact = {
           id: row.id,
-          artifact_type: row.artifact_type,
+          type: artifactType,
+          artifact_type: artifactType,
           title: row.title,
           tags: row.tags ?? [],
           summary: row.summary,
@@ -1977,6 +1988,7 @@ serve(async (req) => {
               userId: user.id,
               chatId: existingChatId!,
               supabase: supabaseClient,
+              toolCallId: id,
             })
 
             if (outcome.artifactLink) {
