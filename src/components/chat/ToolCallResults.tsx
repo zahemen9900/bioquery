@@ -18,6 +18,20 @@ import type { ChatMessage } from '@/contexts/chat-context-types'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { ScrollArea } from '@/components/ui/scroll-area'
 
+const openExternalLink = (url?: string | null) => {
+
+	if (!url || typeof window === 'undefined') {
+		return
+	}
+
+	try {
+		const parsed = new URL(url)
+		window.open(parsed.toString(), '_blank', 'noopener,noreferrer')
+	} catch {
+		window.open(url, '_blank', 'noopener,noreferrer')
+	}
+}
+
 type ToolCallEntry = {
 	id: number
 	name: string
