@@ -57,3 +57,18 @@ Accelerate your workflow with near-instant image generation and versatile custom
 
 
 ```ts
+fetch("https://api.freepik.com/v1/ai/text-to-image", {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+    "Accept": "application/json",
+    "x-freepik-api-key": "<PUT_YOUR_API_KEY>"
+  },
+  body: JSON.stringify({
+  "prompt": "Futuristic interior design, minimalist and elegant living room, centered composition. Soft pastel color palette dominated by pink, blue, and purple hues. Curved, organic furniture with smooth, glossy surfaces. A central floating coffee table made of translucent glass with soft underlighting. The walls have embedded ambient LED strips that shift subtly between pastel shades. A large, floor-to-ceiling window reveals a dreamy cityscape with futuristic architecture. Plush pastel rugs and decorative pillows add warmth. Soft diffused lighting from a modern chandelier with glowing orbs. Photorealistic, 35mm lens, shallow depth of field, cinematic framing.",
+  "aspect_ratio": "widescreen_16_9"
+})
+})
+.then(response => response.json())
+.then(data => console.log(data));
+```

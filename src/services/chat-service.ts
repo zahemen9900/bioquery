@@ -24,7 +24,33 @@ type StreamErrorEvent = {
 	message: string
 }
 
-export type ChatStreamEvent = StreamThoughtEvent | StreamResponseEvent | StreamCompleteEvent | StreamErrorEvent
+type StreamToolStartEvent = {
+	type: 'tool_start'
+	tool: {
+		id: number
+		name: string
+	}
+}
+
+type StreamToolResultEvent = {
+	type: 'tool_result'
+	tool: {
+		id: number
+		name: string
+	}
+	status: 'pending' | 'success' | 'error'
+	summary?: Record<string, unknown> | null
+	error?: string | null
+	content?: Record<string, unknown> | null
+}
+
+export type ChatStreamEvent =
+	| StreamThoughtEvent
+	| StreamResponseEvent
+	| StreamToolStartEvent
+	| StreamToolResultEvent
+	| StreamCompleteEvent
+	| StreamErrorEvent
 
 const FUNCTIONS_BASE_URL = supabaseUrl ? `${supabaseUrl}/functions/v1` : null
 
@@ -40,11 +66,13 @@ export async function* streamChatResponse({
 	message,
 	chatTitle,
 	signal,
+  toolMode = 'research-tools',
 }: {
 	chatId?: string
 	message: string
 	chatTitle?: string | null
 	signal?: AbortSignal
+  toolMode?: 'research-tools' | 'web-search'
 }): AsyncGenerator<ChatStreamEvent> {
 	if (!FUNCTIONS_BASE_URL) {
 		throw new Error('Supabase functions URL is not configured')
@@ -58,7 +86,7 @@ export async function* streamChatResponse({
 			'Content-Type': 'application/json',
 			...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
 		},
-		body: JSON.stringify({ chatId, message, chatTitle }),
+		body: JSON.stringify({ chatId, message, chatTitle, toolMode }),
 		signal,
 	})
 
