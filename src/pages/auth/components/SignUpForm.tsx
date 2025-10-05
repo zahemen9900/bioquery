@@ -88,9 +88,10 @@ export function SignUpForm({ onSwitchToSignIn }: { onSwitchToSignIn: () => void 
   const handleGoogleSignUp = async () => {
     setStatus(initialStatus)
     const origin = window.location.origin
+    const redirectTo = `${origin}/auth/callback`
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: { redirectTo: `${origin}/auth` },
+      options: { redirectTo },
     })
     if (error) setStatus({ type: 'error', message: error.message })
   }

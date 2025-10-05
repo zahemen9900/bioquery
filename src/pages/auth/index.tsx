@@ -1,17 +1,26 @@
 'use client'
 
-import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import { HiOutlineLockClosed, HiOutlineSparkles, HiOutlineUser } from 'react-icons/hi2'
 import { AnimatePresence, motion } from 'motion/react'
 
 import { SignInForm } from './components/SignInForm'
 import { SignUpForm } from './components/SignUpForm'
+import { useAuth } from '@/contexts/auth-context-types'
 
 type AuthView = 'sign-in' | 'sign-up'
 
 export default function AuthPage() {
   const [activeView, setActiveView] = useState<AuthView>('sign-in')
+  const navigate = useNavigate()
+  const { session, initialized } = useAuth()
+
+  useEffect(() => {
+    if (initialized && session) {
+      navigate('/discover', { replace: true })
+    }
+  }, [initialized, session, navigate])
 
   return (
     <div className="relative min-h-screen overflow-hidden bg-scheme-background">

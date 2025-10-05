@@ -7,6 +7,7 @@ import { ChatProvider } from '@/contexts/ChatContext'
 import { ThemeProvider } from '@/contexts/ThemeContext'
 import { ToastProvider } from '@/components/ui/toast/ToastProvider'
 import AuthPage from '@/pages/auth'
+import AuthCallbackPage from '@/pages/auth/callback'
 import CollectionsPage from '@/pages/collections'
 import DiscoverPage from '@/pages/discover'
 import HomePage from '@/pages/home'
@@ -29,6 +30,7 @@ function App() {
               <Routes>
                 <Route path="/" element={<HomePage />} />
                 <Route path="/auth" element={<AuthPage />} />
+                <Route path="/auth/callback" element={<AuthCallbackPage />} />
 
                 <Route
                   element={
