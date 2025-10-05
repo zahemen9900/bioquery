@@ -97,11 +97,44 @@ type ImageAssetContent = {
   }
 }
 
+type ContextualSearchResult = {
+  pmcid: string | null
+  title: string | null
+  url: string | null
+  chunk_index: number | null
+  text: string
+  similarity_score: number | null
+}
+
+type ContextualSearchContent = {
+  type: "contextual_search"
+  tool_id: number
+  tool_name: string
+  search: {
+    query: string
+    top_k: number
+    results: ContextualSearchResult[]
+  }
+}
+
+type AnswerWithSourcesContent = {
+  type: "answer_with_sources"
+  tool_id: number
+  tool_name: string
+  answer: {
+    query: string
+    text: string
+    sources: ContextualSearchResult[]
+  }
+}
+
 type ToolContentEntry =
   | { type: "grounding_sources"; sources: GroundingSource[] }
   | DocumentReferenceContent
   | ArtifactReferenceContent
   | ImageAssetContent
+  | ContextualSearchContent
+  | AnswerWithSourcesContent
 
 type ToolExecutionOutcome = {
   status: "success" | "error"
@@ -110,6 +143,8 @@ type ToolExecutionOutcome = {
     | { kind: "document"; data: DocumentReferenceContent["document"] }
     | { kind: "chat_artifact"; data: ArtifactReferenceContent["artifact"] }
     | { kind: "image_asset"; data: ImageAssetContent["image"] }
+    | { kind: "contextual_search"; data: ContextualSearchContent["search"] }
+    | { kind: "answer_with_sources"; data: AnswerWithSourcesContent["answer"] }
   summary?: Record<string, unknown>
   error?: string
   artifactLink?: { table: "chat_artifacts"; id: string } | null
@@ -218,6 +253,12 @@ const MAX_HISTORY_MESSAGES = 20
 const IMAGE_STORAGE_BUCKET = "generated-artifacts"
 const IMAGE_SIGNED_URL_TTL_SECONDS = 60 * 60 * 24 * 365
 const DEFAULT_IMAGE_ASPECT_RATIO = "widescreen_16_9"
+const COHERE_EMBED_ENDPOINT = "https://api.cohere.com/v1/embed"
+const COHERE_EMBED_MODEL = "embed-v4.0"
+const COHERE_EMBED_DIMENSION = 512
+const MAX_SEARCH_TEXT_LENGTH = 1600
+const RAG_ANSWER_SYSTEM_PROMPT =
+  "You are BioQuery, a NASA bioscience assistant. Use only the provided sources to answer the question. Cite your sources inline using bracketed numbers like [1]. If the sources do not support an answer, say so explicitly."
 
 const getEnv = (key: string): string | undefined => {
   const runtime = (globalThis as { Deno?: { env: { get(name: string): string | undefined } } }).Deno
@@ -228,6 +269,7 @@ const SUPABASE_URL = getEnv("SUPABASE_URL")
 const SUPABASE_ANON_KEY = getEnv("SUPABASE_ANON_KEY")
 const GEMINI_API_KEY = getEnv("GEMINI_API_KEY")
 const FREEPIK_API_KEY = getEnv("FREEPIK_API_KEY")
+const COHERE_API_KEY = getEnv("COHERE_API_KEY")
 
 if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
   console.error("Missing Supabase configuration")
@@ -239,6 +281,10 @@ if (!GEMINI_API_KEY) {
 
 if (!FREEPIK_API_KEY) {
   console.warn("FREEPIK_API_KEY is not configured; image generation tools will be unavailable.")
+}
+
+if (!COHERE_API_KEY) {
+  console.warn("COHERE_API_KEY is not configured; RAG retrieval tools will be unavailable.")
 }
 
 const encoder = new TextEncoder()
@@ -286,6 +332,24 @@ const asOptionalString = (value: unknown): string | null => {
   if (typeof value !== "string") return null
   const trimmed = value.trim()
   return trimmed.length ? trimmed : null
+}
+
+const asOptionalNumber = (value: unknown): number | null => {
+  if (typeof value === "number" && Number.isFinite(value)) return value
+  if (typeof value === "string") {
+    const trimmed = value.trim()
+    if (!trimmed.length) return null
+    const parsed = Number(trimmed)
+    if (Number.isFinite(parsed)) return parsed
+  }
+  return null
+}
+
+const asOptionalInteger = (value: unknown): number | null => {
+  const numeric = asOptionalNumber(value)
+  if (numeric === null) return null
+  const truncated = Math.trunc(numeric)
+  return Number.isFinite(truncated) ? truncated : null
 }
 
 const toStringArray = (value: unknown, limit = 16): string[] => {
@@ -389,6 +453,157 @@ const parseTimelineSections = (
   return sections
 }
 
+const clampTopK = (value: unknown, fallback = 5): number => {
+  const numeric = asOptionalNumber(value)
+  if (numeric === null) return fallback
+  const bounded = Math.min(20, Math.max(1, Math.floor(numeric)))
+  return bounded
+}
+
+const normalizeSimilarityScore = (value: unknown): number | null => {
+  const numeric = asOptionalNumber(value)
+  if (numeric === null) return null
+  if (!Number.isFinite(numeric)) return null
+  return Math.max(-1, Math.min(1, numeric))
+}
+
+const mapRowToSearchResult = (row: Record<string, unknown>): ContextualSearchResult | null => {
+  const rawText = asOptionalString(row.chunk) ?? asOptionalString(row.text)
+  if (!rawText) return null
+  const chunkIndex = asOptionalInteger(row.chunk_index)
+  return {
+    pmcid: asOptionalString(row.pmcid),
+    title: asOptionalString(row.title),
+    url: asOptionalString(row.url),
+    chunk_index: chunkIndex,
+    text: rawText.length > MAX_SEARCH_TEXT_LENGTH ? `${rawText.slice(0, MAX_SEARCH_TEXT_LENGTH)}…` : rawText,
+    similarity_score: normalizeSimilarityScore(row.similarity),
+  }
+}
+
+const parseContextualResultsInput = (value: unknown): ContextualSearchResult[] => {
+  if (!Array.isArray(value)) return []
+  const results: ContextualSearchResult[] = []
+  for (const entry of value) {
+    if (!entry || typeof entry !== "object") continue
+    const mapped = mapRowToSearchResult(entry as Record<string, unknown>)
+    if (mapped) {
+      results.push(mapped)
+    }
+  }
+  return results
+}
+
+const fetchQueryEmbedding = async (text: string): Promise<number[]> => {
+  if (!COHERE_API_KEY) {
+    throw new Error("COHERE_API_KEY is not configured for contextual search.")
+  }
+
+  const trimmed = text.trim()
+  if (!trimmed.length) {
+    throw new Error("Query text must not be empty.")
+  }
+
+  const response = await fetch(COHERE_EMBED_ENDPOINT, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${COHERE_API_KEY}`,
+    },
+    body: JSON.stringify({
+      model: COHERE_EMBED_MODEL,
+      texts: [trimmed],
+      input_type: "search_query",
+      embedding_types: ["float"],
+      dimensions: COHERE_EMBED_DIMENSION,
+      output_dimensionality: COHERE_EMBED_DIMENSION,
+    }),
+  })
+
+  if (!response.ok) {
+    const errorText = await response.text().catch(() => "")
+    throw new Error(`Failed to embed query (${response.status}): ${errorText.slice(0, 240)}`)
+  }
+
+  const payload = await response.json().catch(() => null)
+  if (!payload) {
+    throw new Error("Embedding response was not JSON.")
+  }
+
+  let vector: unknown
+  const embeddingsObject = payload.embeddings
+
+  if (Array.isArray(embeddingsObject)) {
+    vector = embeddingsObject[0]
+  } else if (embeddingsObject && typeof embeddingsObject === "object") {
+    if (Array.isArray(embeddingsObject.float)) {
+      vector = embeddingsObject.float[0]
+    } else if (Array.isArray(embeddingsObject.data)) {
+      vector = embeddingsObject.data[0]
+    }
+  }
+
+  if (!Array.isArray(vector)) {
+    throw new Error("Embedding response did not include a float vector.")
+  }
+
+  const result: number[] = []
+  for (const value of vector) {
+    const numeric = Number(value)
+    if (!Number.isFinite(numeric)) {
+      throw new Error("Embedding vector contained a non-numeric value.")
+    }
+    result.push(numeric)
+  }
+
+  if (result.length === COHERE_EMBED_DIMENSION) {
+    return result
+  }
+
+  if (result.length > COHERE_EMBED_DIMENSION) {
+    console.warn(
+      `Received embedding with dimension ${result.length}; trimming to ${COHERE_EMBED_DIMENSION}. ` +
+        "Update the Cohere API request if this persists.",
+    )
+    return result.slice(0, COHERE_EMBED_DIMENSION)
+  }
+
+  throw new Error(`Embedding dimension mismatch (expected ${COHERE_EMBED_DIMENSION}, received ${result.length}).`)
+}
+
+const performContextualSearch = async ({
+  supabase,
+  query,
+  topK,
+}: {
+  supabase: SupabaseClient
+  query: string
+  topK: number
+}): Promise<ContextualSearchResult[]> => {
+  const embedding = await fetchQueryEmbedding(query)
+
+  const { data, error } = await supabase.rpc("match_publication_chunks", {
+    query_embedding: embedding,
+    match_count: topK,
+  })
+
+  if (error) {
+    console.error("contextual_search failed", error)
+    throw new Error(error.message ?? "Failed to run contextual search.")
+  }
+
+  const rows = Array.isArray(data) ? (data as Record<string, unknown>[]) : []
+  const mapped: ContextualSearchResult[] = []
+  for (const row of rows) {
+    const result = mapRowToSearchResult(row)
+    if (result) {
+      mapped.push(result)
+    }
+  }
+
+  return mapped
+}
+
 const upsertToolContent = (list: ToolContentEntry[], entry: ToolContentEntry): ToolContentEntry[] => {
   if (entry.type === "grounding_sources") {
     const others = list.filter((item) => item.type !== "grounding_sources")
@@ -437,12 +652,31 @@ const serializeToolContents = (contents: ToolContentEntry[]): Record<string, unk
         artifact: entry.artifact,
       }
     }
-    return {
-      type: entry.type,
-      tool_id: entry.tool_id,
-      tool_name: entry.tool_name,
-      image: entry.image,
+    if (entry.type === "image_asset") {
+      return {
+        type: entry.type,
+        tool_id: entry.tool_id,
+        tool_name: entry.tool_name,
+        image: entry.image,
+      }
     }
+    if (entry.type === "contextual_search") {
+      return {
+        type: entry.type,
+        tool_id: entry.tool_id,
+        tool_name: entry.tool_name,
+        search: entry.search,
+      }
+    }
+    if (entry.type === "answer_with_sources") {
+      return {
+        type: entry.type,
+        tool_id: entry.tool_id,
+        tool_name: entry.tool_name,
+        answer: entry.answer,
+      }
+    }
+    return entry as unknown as Record<string, unknown>
   })
 
 const normalizeUrl = (url?: string | null): string | null => {
@@ -1362,6 +1596,145 @@ const executeArtifactTool = async ({
           },
         }
       }
+      case "contextual_search": {
+        const query = asNonEmptyString(args.query)
+        if (!query) {
+          const message = "query is required for contextual_search."
+          return { status: "error", result: { status: "error", message }, error: message }
+        }
+
+        const topK = clampTopK((args as Record<string, unknown>).top_k)
+        let results: ContextualSearchResult[]
+        try {
+          results = await performContextualSearch({ supabase, query, topK })
+        } catch (error) {
+          const message = error instanceof Error ? error.message : "Contextual search failed."
+          return { status: "error", result: { status: "error", message }, error: message }
+        }
+
+        return {
+          status: "success",
+          result: {
+            status: "success",
+            query,
+            top_k: topK,
+            results,
+          },
+          summary: {
+            query,
+            matches: results.length,
+          },
+          content: {
+            kind: "contextual_search",
+            data: {
+              query,
+              top_k: topK,
+              results,
+            },
+          },
+        }
+      }
+      case "answer_with_sources": {
+        const query = asNonEmptyString(args.query)
+        if (!query) {
+          const message = "query is required for answer_with_sources."
+          return { status: "error", result: { status: "error", message }, error: message }
+        }
+
+        const topK = clampTopK((args as Record<string, unknown>).top_k)
+        let contextualResults = parseContextualResultsInput((args as Record<string, unknown>).contextual_results)
+
+        if (!contextualResults.length) {
+          try {
+            contextualResults = await performContextualSearch({ supabase, query, topK })
+          } catch (error) {
+            const message = error instanceof Error ? error.message : "Contextual search failed."
+            return { status: "error", result: { status: "error", message }, error: message }
+          }
+        }
+
+        const limitedResults = contextualResults.slice(0, topK)
+
+        if (!limitedResults.length) {
+          const fallbackAnswer = "I could not find relevant NASA bioscience publications for that question."
+          return {
+            status: "success",
+            result: {
+              status: "success",
+              answer: fallbackAnswer,
+              sources: [],
+            },
+            summary: {
+              query,
+              matches: 0,
+            },
+            content: {
+              kind: "answer_with_sources",
+              data: {
+                query,
+                text: fallbackAnswer,
+                sources: [],
+              },
+            },
+          }
+        }
+
+        if (!GEMINI_API_KEY) {
+          const message = "answer_with_sources is unavailable because GEMINI_API_KEY is missing."
+          return { status: "error", result: { status: "error", message }, error: message }
+        }
+
+        const sourcesBlock = limitedResults
+          .map((result, index) => {
+            const lines: string[] = [`Source [${index + 1}]`]
+            if (result.title) lines.push(`Title: ${result.title}`)
+            if (result.url) lines.push(`URL: ${result.url}`)
+            lines.push(`Excerpt: ${result.text}`)
+            return lines.join("\n")
+          })
+          .join("\n\n")
+
+        const prompt = `Answer the question using only the sources below. Cite sources inline using bracketed numbers like [1].\n\nQuestion:\n${query}\n\nSources:\n${sourcesBlock}`
+
+        let answerText = ""
+        try {
+          const ragClient = new GeminiClientCtor({ apiKey: GEMINI_API_KEY })
+          const response = await ragClient.models.generateContent({
+            model: DEFAULT_MODEL,
+            contents: [{ role: "user", parts: [{ text: prompt }] }],
+            config: { systemInstruction: RAG_ANSWER_SYSTEM_PROMPT },
+          })
+          answerText = (response.text ?? "").trim()
+        } catch (error) {
+          const message = error instanceof Error ? error.message : "Failed to generate grounded answer."
+          return { status: "error", result: { status: "error", message }, error: message }
+        }
+
+        if (!answerText) {
+          answerText = "The provided sources did not contain enough information to answer that question confidently."
+        }
+
+        return {
+          status: "success",
+          result: {
+            status: "success",
+            answer: answerText,
+            sources: limitedResults,
+          },
+          summary: {
+            query,
+            matches: limitedResults.length,
+          },
+          content: {
+            kind: "answer_with_sources",
+            data: {
+              query,
+              text: answerText,
+              sources: limitedResults,
+            },
+          },
+        }
+      }
       case "create_visual_json": {
         const chartType = asNonEmptyString(args.chart_type)
         const title = asNonEmptyString(args.title)
@@ -2023,6 +2396,20 @@ serve(async (req) => {
                 tool_id: id,
                 tool_name: name,
                 image: outcome.content.data,
+              }
+            } else if (outcome.content?.kind === "contextual_search") {
+              contentEntry = {
+                type: "contextual_search",
+                tool_id: id,
+                tool_name: name,
+                search: outcome.content.data,
+              }
+            } else if (outcome.content?.kind === "answer_with_sources") {
+              contentEntry = {
+                type: "answer_with_sources",
+                tool_id: id,
+                tool_name: name,
+                answer: outcome.content.data,
               }
             }
 
