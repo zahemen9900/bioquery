@@ -1,4 +1,6 @@
 import { useMemo, useState } from 'react'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 import {
 	HiOutlineChartBarSquare,
 	HiOutlineDocumentText,
@@ -33,7 +35,6 @@ type DocumentReference = {
 	body: string | null
 	imagePrompt: string | null
 	imageLink: string | null
-	metadata: Record<string, unknown> | null
 }
 
 type ArtifactReference = {
@@ -163,7 +164,18 @@ const ensureString = (value: unknown): string | null => {
 }
 
 const ensureRecord = (value: unknown): Record<string, unknown> | null => {
-	if (!value || typeof value !== 'object' || Array.isArray(value)) return null
+	if (!value) return null
+	if (typeof value === 'string') {
+		try {
+			const parsed = JSON.parse(value)
+			if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+				return parsed as Record<string, unknown>
+			}
+		} catch {
+			return null
+		}
+	}
+	if (typeof value !== 'object' || Array.isArray(value)) return null
 	return value as Record<string, unknown>
 }
 
@@ -261,18 +273,6 @@ const toKnowledgeGraphData = (artifact: ArtifactReference): KnowledgeGraphData |
 
 const CHART_COLORS = ['#60a5fa', '#34d399', '#fbbf24', '#f472b6', '#a78bfa', '#f87171']
 
-const formatMetadataValue = (value: unknown): string => {
-	if (value === null || value === undefined) return '—'
-	if (typeof value === 'string') return value
-	if (typeof value === 'number' || typeof value === 'boolean') return String(value)
-	try {
-		return JSON.stringify(value, null, 2)
-	} catch (error) {
-		console.error('Failed to stringify metadata value', error)
-		return String(value)
-	}
-}
-
 const formatToolName = (name: string): string =>
 	name
 		.replace(/_/g, ' ')
@@ -352,7 +352,6 @@ const extractToolMetadata = (message: ChatMessage): { order: number[]; map: Map<
 						body: ensureString(docRecord.body),
 						imagePrompt: ensureString(docRecord.image_prompt) ?? ensureString(docRecord.imagePrompt),
 						imageLink: ensureString(docRecord.image_link) ?? ensureString(docRecord.imageLink),
-						metadata: ensureRecord(docRecord.metadata),
 					}
 				}
 			}
@@ -408,6 +407,10 @@ export function ToolCallResults({ message, toolId }: ToolCallResultsProps) {
 	const { showToast } = useToast()
 	const [savingMap, setSavingMap] = useState<Record<string, boolean>>({})
 	const [savedMap, setSavedMap] = useState<Record<string, boolean>>({})
+	const [artifactCache, setArtifactCache] = useState<Record<string, ArtifactReference>>({})
+	const [documentCache, setDocumentCache] = useState<Record<string, DocumentReference>>({})
+	const [loadingArtifacts, setLoadingArtifacts] = useState<Record<string, boolean>>({})
+	const [loadingDocuments, setLoadingDocuments] = useState<Record<string, boolean>>({})
 	const [documentModal, setDocumentModal] = useState<DocumentReference | null>(null)
 	const [timelineModal, setTimelineModal] = useState<TimelineModalState | null>(null)
 	const [timelineIndex, setTimelineIndex] = useState(0)
@@ -426,33 +429,164 @@ export function ToolCallResults({ message, toolId }: ToolCallResultsProps) {
 		}
 	}
 
-	const handleOpenTimeline = (artifact: ArtifactReference, call: ToolCallEntry | null) => {
-		const data = toTimelineData(artifact)
-		if (!data) {
-			showToast('Timeline content is unavailable for this artifact')
+	const getArtifactWithData = async (artifact: ArtifactReference): Promise<ArtifactReference | null> => {
+		if (!artifact.id) return null
+		setLoadingArtifacts((prev) => ({ ...prev, [artifact.id]: true }))
+		try {
+			const { data, error } = await supabase
+				.from('chat_artifacts')
+				.select('id, artifact_type, title, tags, summary, content')
+				.eq('id', artifact.id)
+				.maybeSingle()
+
+			if (error) throw error
+			if (!data) return null
+
+			const contentRaw = (data as { content?: unknown }).content
+			let contentRecord: Record<string, unknown> | null = null
+			if (contentRaw && typeof contentRaw === 'object' && !Array.isArray(contentRaw)) {
+				contentRecord = contentRaw as Record<string, unknown>
+			} else if (typeof contentRaw === 'string') {
+				try {
+					const parsed = JSON.parse(contentRaw)
+					if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+						contentRecord = parsed as Record<string, unknown>
+					}
+				} catch (parseError) {
+					console.error('Failed to parse artifact content', parseError)
+				}
+			}
+
+			const parsedTags = parseStringArray((data as Record<string, unknown>).tags)
+			const nextArtifact: ArtifactReference = {
+				...artifact,
+				type: ensureString((data as Record<string, unknown>).artifact_type) ?? artifact.type,
+				title: ensureString((data as Record<string, unknown>).title) ?? artifact.title,
+				summary: ensureString((data as Record<string, unknown>).summary) ?? artifact.summary,
+				tags: parsedTags.length ? parsedTags : artifact.tags,
+				metrics: artifact.metrics,
+				data: contentRecord ?? artifact.data,
+			}
+
+			setArtifactCache((prev) => ({ ...prev, [artifact.id]: nextArtifact }))
+			return nextArtifact
+		} catch (error) {
+			console.error('Failed to load artifact', error)
+			showToast('We could not load the full artifact. Try again shortly.')
+			return null
+		} finally {
+			setLoadingArtifacts((prev) => {
+				const next = { ...prev }
+				delete next[artifact.id]
+				return next
+			})
+		}
+	}
+
+	const getDocumentWithBody = async (document: DocumentReference): Promise<DocumentReference | null> => {
+		if (!document.id) return null
+		setLoadingDocuments((prev) => ({ ...prev, [document.id]: true }))
+		try {
+			const { data, error } = await supabase
+				.from('documents')
+				.select('id, title, body, tags, document_type, image_prompt, image_link')
+				.eq('id', document.id)
+				.maybeSingle()
+
+			if (error) throw error
+			if (!data) return null
+
+			const record = data as Record<string, unknown>
+			const parsedTags = parseStringArray(record.tags)
+			const nextDocument: DocumentReference = {
+				...document,
+				title: ensureString(record.title) ?? document.title,
+				documentType: ensureString(record.document_type) ?? document.documentType,
+				tags: parsedTags.length ? parsedTags : document.tags,
+				preview: document.preview ?? (ensureString(record.body)?.slice(0, 180) ?? null),
+				body: ensureString(record.body),
+				imagePrompt: ensureString(record.image_prompt) ?? document.imagePrompt,
+				imageLink: ensureString(record.image_link) ?? document.imageLink,
+			}
+
+			setDocumentCache((prev) => ({ ...prev, [document.id]: nextDocument }))
+			return nextDocument
+		} catch (error) {
+			console.error('Failed to load document', error)
+			showToast('We could not load the full document. Try again shortly.')
+			return null
+		} finally {
+			setLoadingDocuments((prev) => {
+				const next = { ...prev }
+				delete next[document.id]
+				return next
+			})
+		}
+	}
+
+	const handleOpenTimeline = async (artifact: ArtifactReference, call: ToolCallEntry | null) => {
+		const existing = toTimelineData(artifactCache[artifact.id] ?? artifact)
+		if (existing) {
+			setTimelineModal({ artifact: artifactCache[artifact.id] ?? artifact, call, data: existing })
+			setTimelineIndex(0)
 			return
 		}
-		setTimelineModal({ artifact, call, data })
+		const loaded = await getArtifactWithData(artifact)
+		if (!loaded) return
+		const timelineData = toTimelineData(loaded)
+		if (!timelineData) {
+			showToast('Timeline data is unavailable for this artifact')
+			return
+		}
+		setTimelineModal({ artifact: loaded, call, data: timelineData })
 		setTimelineIndex(0)
 	}
 
-	const handleOpenVisualization = (artifact: ArtifactReference) => {
-		const data = toVisualChartData(artifact)
-		if (!data) {
+	const handleOpenVisualization = async (artifact: ArtifactReference) => {
+		const cached = artifactCache[artifact.id] ?? artifact
+		const current = toVisualChartData(cached)
+		if (current) {
+			setVisualModal({ artifact: cached, data: current })
+			return
+		}
+		const loaded = await getArtifactWithData(artifact)
+		if (!loaded) return
+		const chartData = toVisualChartData(loaded)
+		if (!chartData) {
 			showToast('Visualization data is unavailable for this artifact')
 			return
 		}
-		setVisualModal({ artifact, data })
+		setVisualModal({ artifact: loaded, data: chartData })
 	}
 
-	const handleOpenGraph = (artifact: ArtifactReference, call: ToolCallEntry | null) => {
-		const data = toKnowledgeGraphData(artifact)
-		if (!data) {
+	const handleOpenGraph = async (artifact: ArtifactReference, call: ToolCallEntry | null) => {
+		const cached = artifactCache[artifact.id] ?? artifact
+		const current = toKnowledgeGraphData(cached)
+		if (current) {
+			setGraphModal({ artifact: cached, call, data: current })
+			setGraphSelection(current.nodes[0]?.id ?? null)
+			return
+		}
+		const loaded = await getArtifactWithData(artifact)
+		if (!loaded) return
+		const graphData = toKnowledgeGraphData(loaded)
+		if (!graphData) {
 			showToast('Graph data is unavailable for this artifact')
 			return
 		}
-		setGraphModal({ artifact, call, data })
-		setGraphSelection(data.nodes[0]?.id ?? null)
+		setGraphModal({ artifact: loaded, call, data: graphData })
+		setGraphSelection(graphData.nodes[0]?.id ?? null)
+	}
+
+	const handleOpenDocument = async (document: DocumentReference) => {
+		const cached = documentCache[document.id] ?? document
+		if (cached.body && cached.body.length > 0) {
+			setDocumentModal(cached)
+			return
+		}
+		const loaded = await getDocumentWithBody(document)
+		if (!loaded) return
+		setDocumentModal(loaded)
 	}
 
 	const renderImageAsset = (image: ImageAssetReference, call: ToolCallEntry | null) => {
@@ -616,7 +750,6 @@ export function ToolCallResults({ message, toolId }: ToolCallResultsProps) {
 						body: document.body,
 						image_prompt: document.imagePrompt,
 						image_link: document.imageLink,
-						metadata: document.metadata,
 						tool_call_id: callId,
 					},
 				}
@@ -651,7 +784,8 @@ export function ToolCallResults({ message, toolId }: ToolCallResultsProps) {
 	}
 
 	const renderGenericArtifact = (artifact: ArtifactReference, call: ToolCallEntry | null) => {
-		const iconKey = artifact.type.toLowerCase()
+		const iconKey = typeof artifact.type === 'string' ? artifact.type.toLowerCase() : ''
+		const displayType = typeof artifact.type === 'string' && artifact.type.length > 0 ? artifact.type : 'artifact'
 		const Icon = ARTIFACT_ICONS[iconKey] ?? HiOutlineSparkles
 		const key = `artifact:${artifact.id}`
 		const isSaving = Boolean(savingMap[key])
@@ -669,7 +803,7 @@ export function ToolCallResults({ message, toolId }: ToolCallResultsProps) {
 						<div className="space-y-1">
 							<p className="text-sm font-semibold text-scheme-text">{artifact.title ?? 'Generated artifact'}</p>
 							<p className="text-xs text-scheme-muted-text">
-								{call ? formatToolName(call.name) : 'Artifact'} • {artifact.type.replace('_', ' ')}
+								{call ? formatToolName(call.name) : 'Artifact'} • {displayType.replace('_', ' ')}
 							</p>
 						</div>
 					</div>
@@ -708,16 +842,16 @@ export function ToolCallResults({ message, toolId }: ToolCallResultsProps) {
 	}
 
 	const renderTimelineArtifact = (artifact: ArtifactReference, call: ToolCallEntry | null) => {
-		const timelineData = toTimelineData(artifact)
-		if (!timelineData) {
-			return renderGenericArtifact(artifact, call)
-		}
 		const key = `artifact:${artifact.id}`
 		const isSaving = Boolean(savingMap[key])
 		const isSaved = Boolean(savedMap[key])
 		const metricsLabel = renderMetrics(artifact.metrics)
 		const disabled = !canPersist || isSaving || isSaved
-		const firstSection = timelineData.sections[0]
+		const timelineData = toTimelineData(artifact)
+		const timelineTitle = timelineData?.title ?? artifact.title ?? 'Generated timeline'
+		const firstSection = timelineData?.sections[0]
+		const isLoadingDetails = Boolean(loadingArtifacts[artifact.id])
+		const displayType = typeof artifact.type === 'string' && artifact.type.length > 0 ? artifact.type : 'timeline'
 		return (
 			<div className="mt-3 rounded-2xl border border-biosphere-500/25 bg-biosphere-500/5 p-4 backdrop-blur">
 				<div className="flex items-start justify-between gap-4">
@@ -726,9 +860,9 @@ export function ToolCallResults({ message, toolId }: ToolCallResultsProps) {
 							<HiOutlineQueueList className="h-5 w-5" />
 						</span>
 						<div className="space-y-1">
-							<p className="text-sm font-semibold text-scheme-text">{timelineData.title}</p>
+							<p className="text-sm font-semibold text-scheme-text">{timelineTitle}</p>
 							<p className="text-xs text-scheme-muted-text">
-								{call ? formatToolName(call.name) : 'Timeline'} • {artifact.type.replace('_', ' ')}
+								{call ? formatToolName(call.name) : 'Timeline'} • {displayType.replace('_', ' ')}
 							</p>
 						</div>
 					</div>
@@ -742,6 +876,8 @@ export function ToolCallResults({ message, toolId }: ToolCallResultsProps) {
 						<p className="mt-1 text-sm font-semibold text-scheme-text">{firstSection.title}</p>
 						<p className="mt-1 text-sm leading-relaxed text-scheme-text/85">{firstSection.description}</p>
 					</div>
+				) : artifact.summary ? (
+					<p className="mt-3 text-sm leading-relaxed text-scheme-text/85">{artifact.summary}</p>
 				) : null}
 				{artifact.tags.length ? (
 					<div className="mt-3 flex flex-wrap gap-1.5">
@@ -757,9 +893,12 @@ export function ToolCallResults({ message, toolId }: ToolCallResultsProps) {
 						type="button"
 						size="sm"
 						className="rounded-full bg-biosphere-500 text-space-900 hover:bg-biosphere-400"
-						onClick={() => handleOpenTimeline(artifact, call)}
+						onClick={() => {
+							void handleOpenTimeline(artifact, call)
+						}}
+						disabled={isLoadingDetails}
 					>
-						View timeline
+						{isLoadingDetails ? 'Loading timeline…' : 'View timeline'}
 					</Button>
 					<Button
 						type="button"
@@ -782,16 +921,17 @@ export function ToolCallResults({ message, toolId }: ToolCallResultsProps) {
 	}
 
 	const renderVisualArtifact = (artifact: ArtifactReference, call: ToolCallEntry | null) => {
-		const chartData = toVisualChartData(artifact)
-		if (!chartData) {
-			return renderGenericArtifact(artifact, call)
-		}
 		const key = `artifact:${artifact.id}`
 		const isSaving = Boolean(savingMap[key])
 		const isSaved = Boolean(savedMap[key])
 		const metricsLabel = renderMetrics(artifact.metrics)
 		const disabled = !canPersist || isSaving || isSaved
-		const previewPoints = chartData.dataPoints.slice(0, 3)
+		const chartData = toVisualChartData(artifact)
+		const previewPoints = chartData ? chartData.dataPoints.slice(0, 3) : []
+		const chartTitle = chartData?.title ?? artifact.title ?? 'Generated visualization'
+		const displayType = typeof artifact.type === 'string' && artifact.type.length > 0 ? artifact.type : 'visualization'
+		const chartTypeLabel = chartData?.chartType ?? displayType.replace('_', ' ')
+		const isLoadingDetails = Boolean(loadingArtifacts[artifact.id])
 		return (
 			<div className="mt-3 rounded-2xl border border-biosphere-500/25 bg-biosphere-500/5 p-4 backdrop-blur">
 				<div className="flex items-start justify-between gap-4">
@@ -800,9 +940,9 @@ export function ToolCallResults({ message, toolId }: ToolCallResultsProps) {
 							<HiOutlineChartBarSquare className="h-5 w-5" />
 						</span>
 						<div className="space-y-1">
-							<p className="text-sm font-semibold text-scheme-text">{chartData.title}</p>
+							<p className="text-sm font-semibold text-scheme-text">{chartTitle}</p>
 							<p className="text-xs text-scheme-muted-text">
-								{call ? formatToolName(call.name) : 'Visualization'} • {chartData.chartType}
+								{call ? formatToolName(call.name) : 'Visualization'} • {chartTypeLabel}
 							</p>
 						</div>
 					</div>
@@ -832,9 +972,12 @@ export function ToolCallResults({ message, toolId }: ToolCallResultsProps) {
 						type="button"
 						size="sm"
 						className="rounded-full bg-biosphere-500 text-space-900 hover:bg-biosphere-400"
-						onClick={() => handleOpenVisualization(artifact)}
+						onClick={() => {
+							void handleOpenVisualization(artifact)
+						}}
+						disabled={isLoadingDetails}
 					>
-						View visualization
+						{isLoadingDetails ? 'Loading visualization…' : 'View visualization'}
 					</Button>
 					<Button
 						type="button"
@@ -857,16 +1000,17 @@ export function ToolCallResults({ message, toolId }: ToolCallResultsProps) {
 	}
 
 	const renderGraphArtifact = (artifact: ArtifactReference, call: ToolCallEntry | null) => {
-		const graphData = toKnowledgeGraphData(artifact)
-		if (!graphData) {
-			return renderGenericArtifact(artifact, call)
-		}
 		const key = `artifact:${artifact.id}`
 		const isSaving = Boolean(savingMap[key])
 		const isSaved = Boolean(savedMap[key])
 		const metricsLabel = renderMetrics(artifact.metrics)
 		const disabled = !canPersist || isSaving || isSaved
-		const nodePreview = graphData.nodes.slice(0, 3)
+		const graphData = toKnowledgeGraphData(artifact)
+		const nodePreview = graphData ? graphData.nodes.slice(0, 3) : []
+		const nodeCount = graphData ? graphData.nodes.length : coerceNumber(artifact.metrics?.nodes) ?? 0
+		const edgeCount = graphData ? graphData.edges.length : coerceNumber(artifact.metrics?.edges) ?? 0
+		const graphContext = graphData?.context ?? artifact.summary ?? null
+		const isLoadingDetails = Boolean(loadingArtifacts[artifact.id])
 		return (
 			<div className="mt-3 rounded-2xl border border-biosphere-500/25 bg-biosphere-500/5 p-4 backdrop-blur">
 				<div className="flex items-start justify-between gap-4">
@@ -877,7 +1021,7 @@ export function ToolCallResults({ message, toolId }: ToolCallResultsProps) {
 						<div className="space-y-1">
 							<p className="text-sm font-semibold text-scheme-text">{artifact.title ?? 'Knowledge graph'}</p>
 							<p className="text-xs text-scheme-muted-text">
-								{call ? formatToolName(call.name) : 'Knowledge graph'} • {graphData.nodes.length} nodes · {graphData.edges.length} edges
+								{call ? formatToolName(call.name) : 'Knowledge graph'} • {nodeCount} nodes · {edgeCount} edges
 							</p>
 						</div>
 					</div>
@@ -893,8 +1037,8 @@ export function ToolCallResults({ message, toolId }: ToolCallResultsProps) {
 						))}
 					</div>
 				) : null}
-				{graphData.context ? (
-					<p className="mt-3 text-xs leading-relaxed text-scheme-muted-text/85">{graphData.context}</p>
+				{graphContext ? (
+					<p className="mt-3 text-xs leading-relaxed text-scheme-muted-text/85">{graphContext}</p>
 				) : null}
 				{artifact.tags.length ? (
 					<div className="mt-3 flex flex-wrap gap-1.5">
@@ -910,9 +1054,12 @@ export function ToolCallResults({ message, toolId }: ToolCallResultsProps) {
 						type="button"
 						size="sm"
 						className="rounded-full bg-biosphere-500 text-space-900 hover:bg-biosphere-400"
-						onClick={() => handleOpenGraph(artifact, call)}
+						onClick={() => {
+							void handleOpenGraph(artifact, call)
+						}}
+						disabled={isLoadingDetails}
 					>
-						Explore graph
+						{isLoadingDetails ? 'Loading graph…' : 'Explore graph'}
 					</Button>
 					<Button
 						type="button"
@@ -935,7 +1082,7 @@ export function ToolCallResults({ message, toolId }: ToolCallResultsProps) {
 	}
 
 	const renderArtifact = (artifact: ArtifactReference, call: ToolCallEntry | null) => {
-		const normalizedType = artifact.type.toLowerCase()
+		const normalizedType = typeof artifact.type === 'string' ? artifact.type.toLowerCase() : ''
 		if (normalizedType === 'timeline') {
 			return renderTimelineArtifact(artifact, call)
 		}
@@ -953,6 +1100,7 @@ export function ToolCallResults({ message, toolId }: ToolCallResultsProps) {
 		const isSaving = Boolean(savingMap[key])
 		const isSaved = Boolean(savedMap[key])
 		const disabled = !canPersist || isSaving || isSaved
+		const isLoadingDoc = Boolean(loadingDocuments[document.id])
 
 		return (
 			<div className="mt-3 rounded-2xl border border-scheme-border-subtle bg-scheme-surface/90 p-4 shadow-sm">
@@ -984,9 +1132,12 @@ export function ToolCallResults({ message, toolId }: ToolCallResultsProps) {
 								type="button"
 								size="sm"
 								className="rounded-full bg-biosphere-500 text-space-900 hover:bg-biosphere-400"
-								onClick={() => setDocumentModal(document)}
+								onClick={() => {
+									void handleOpenDocument(document)
+								}}
+								disabled={isLoadingDoc}
 							>
-								Read document
+								{isLoadingDoc ? 'Loading document…' : 'Read document'}
 							</Button>
 							<Button
 								type="button"
@@ -1041,6 +1192,8 @@ export function ToolCallResults({ message, toolId }: ToolCallResultsProps) {
 		if (!entry) return null
 
 		const { call, artifact, document, image } = entry
+		const resolvedArtifact = artifact ? artifactCache[artifact.id] ?? artifact : null
+		const resolvedDocument = document ? documentCache[document.id] ?? document : null
 		const statusPill = renderStatusPill(call)
 
 		return (
@@ -1053,22 +1206,25 @@ export function ToolCallResults({ message, toolId }: ToolCallResultsProps) {
 					{statusPill}
 				</div>
 				{call && call.status === 'error' ? renderError(call) : null}
-				{artifact ? renderArtifact(artifact, call) : null}
-				{document ? renderDocument(document, call) : null}
+				{resolvedArtifact ? renderArtifact(resolvedArtifact, call) : null}
+				{resolvedDocument ? renderDocument(resolvedDocument, call) : null}
 				{image ? renderImageAsset(image, call) : null}
-				{call && call.status === 'success' && !artifact && !document && !image ? renderSummary(call) : null}
+				{call && call.status === 'success' && !resolvedArtifact && !resolvedDocument && !image ? renderSummary(call) : null}
 			</div>
 		)
 	}
 
 	const documentModalDialog = (
-		<Dialog open={Boolean(documentModal)} onOpenChange={(open) => {
-			if (!open) {
-				setDocumentModal(null)
-			}
-		}}>
+		<Dialog
+			open={Boolean(documentModal)}
+			onOpenChange={(open) => {
+				if (!open) {
+					setDocumentModal(null)
+				}
+			}}
+		>
 			{documentModal ? (
-				<DialogContent className="max-w-3xl">
+				<DialogContent className="max-h-[80vh] max-w-3xl">
 					<DialogHeader>
 						<DialogTitle>{documentModal.title ?? 'Generated document'}</DialogTitle>
 						<DialogDescription>
@@ -1076,7 +1232,7 @@ export function ToolCallResults({ message, toolId }: ToolCallResultsProps) {
 							{documentModal.tags.length ? ` • ${documentModal.tags.join(', ')}` : ''}
 						</DialogDescription>
 					</DialogHeader>
-					<ScrollArea className="mt-4 max-h-[65vh] pr-2">
+					<ScrollArea className="mt-4 max-h-[68vh] pr-2">
 						<div className="space-y-4">
 							{documentModal.imageLink ? (
 								<div className="overflow-hidden rounded-2xl border border-scheme-border-subtle/70">
@@ -1087,27 +1243,15 @@ export function ToolCallResults({ message, toolId }: ToolCallResultsProps) {
 								<p className="text-xs text-scheme-muted-text/80">Image prompt: {documentModal.imagePrompt}</p>
 							) : null}
 							{documentModal.body ? (
-								<article className="whitespace-pre-wrap text-sm leading-relaxed text-scheme-text/90">
+								<ReactMarkdown
+									remarkPlugins={[remarkGfm]}
+									className="text-sm leading-relaxed text-scheme-text/90 [&>*]:mb-4 [&>*:last-child]:mb-0 [&_h2]:text-lg [&_h3]:text-base [&_strong]:text-scheme-text [&_a]:text-biosphere-300 hover:[&_a]:text-biosphere-200 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_blockquote]:border-l [&_blockquote]:border-scheme-border-subtle [&_blockquote]:pl-3 [&_blockquote]:text-scheme-muted-text/80 [&_code]:rounded [&_code]:bg-scheme-muted/20 [&_code]:px-1 [&_code]:py-0.5 [&_table]:w-full [&_th]:text-left [&_th]:font-semibold"
+								>
 									{documentModal.body}
-								</article>
+								</ReactMarkdown>
 							) : (
 								<p className="text-sm text-scheme-muted-text">No document body was provided.</p>
 							)}
-							{documentModal.metadata && Object.keys(documentModal.metadata).length ? (
-								<div className="rounded-2xl border border-scheme-border-subtle/70 bg-scheme-surface/70 p-4">
-									<p className="text-xs font-semibold uppercase tracking-wide text-scheme-muted-text/80">Metadata</p>
-									<div className="mt-2 space-y-2 text-xs text-scheme-muted-text/90">
-										{Object.entries(documentModal.metadata).map(([key, value]) => (
-											<div key={key} className="rounded-lg border border-scheme-border-subtle/60 bg-scheme-surface/80 p-2">
-												<p className="text-[0.7rem] font-semibold uppercase tracking-wide text-scheme-muted-text">{formatToolName(key)}</p>
-												<pre className="mt-1 whitespace-pre-wrap break-words text-[0.7rem] leading-relaxed text-scheme-text/80">
-													{formatMetadataValue(value)}
-												</pre>
-											</div>
-										))}
-									</div>
-								</div>
-							) : null}
 						</div>
 					</ScrollArea>
 				</DialogContent>
