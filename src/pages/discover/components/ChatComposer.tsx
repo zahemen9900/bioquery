@@ -226,7 +226,6 @@ export function ChatComposer({
               <span className="rounded-full border border-scheme-border/40 bg-scheme-surface/60 px-2 py-0.5 text-[0.65rem] font-medium uppercase tracking-wide text-scheme-muted-text/90">
                 Mode: {toolMode === 'web-search' ? 'Web search' : 'Research tools'}
               </span>
-              {value.length > 0 ? <span>{value.length} characters</span> : null}
             </span>
           </div>
         ) : null}

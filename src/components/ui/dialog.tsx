@@ -1,5 +1,6 @@
 import * as DialogPrimitive from '@radix-ui/react-dialog'
 import { motion } from 'motion/react'
+import { HiOutlineXMark } from 'react-icons/hi2'
 import { cn } from '@/lib/utils'
 
 const Dialog = DialogPrimitive.Root
@@ -30,6 +31,10 @@ function DialogContent({ className, children, ...props }: React.ComponentPropsWi
             className={cn('relative w-full max-w-2xl rounded-2xl border border-scheme-border/70 bg-scheme-surface p-6 shadow-2xl focus:outline-none', className)}
           >
             {children}
+            <DialogPrimitive.Close className="absolute right-4 top-4 rounded-lg bg-scheme-surface/80 p-1.5 text-scheme-muted-text transition-colors hover:bg-scheme-muted/20 hover:text-scheme-text focus:outline-none focus:ring-2 focus:ring-biosphere-500/50">
+              <HiOutlineXMark className="h-5 w-5" />
+              <span className="sr-only">Close</span>
+            </DialogPrimitive.Close>
           </motion.div>
         </DialogPrimitive.Content>
       </div>

@@ -122,7 +122,7 @@ export function HeaderHome() {
           <div className="relative rounded-2xl border border-scheme-border bg-scheme-surface overflow-hidden shadow-2xl transition-theme">
             <div className="aspect-video flex items-center justify-center bg-gradient-to-br from-space-900 to-space-800 dark:from-space-950 dark:to-space-900">
               <p className="text-scheme-subtle text-lg">
-                [ Hero Animation / Screenshot Placeholder ]
+                <img src="/hero-image.png" alt="Hero" className="object-cover" />
               </p>
             </div>
           </div>
