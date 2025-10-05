@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import {
   HiMiniStar,
@@ -35,6 +35,53 @@ const CHAT_SECTIONS: Array<{ label: string; key: 'starredChats' | 'recentChats' 
   { label: 'Recent', key: 'recentChats' },
 ]
 
+type UserPreferences = Record<string, unknown> & { show_onboarding?: boolean }
+
+const ONBOARDING_SLIDES: Array<{
+  id: string
+  tag: string
+  title: string
+  description: string
+  points: string[]
+  gradient: string
+  accent: string
+  icon: string
+}> = [
+  {
+    id: 'welcome',
+    tag: 'Welcome Aboard',
+    title: 'Meet BioQuery, your NASA bioscience copilot',
+    description:
+      'Ask natural questions and BioQuery will surface grounded answers from curated NASA space biology research.',
+    points: ['Natural language search across curated publications', 'Grounded, citation-rich answers in seconds'],
+    gradient: 'from-biosphere-500/80 via-cosmic-500/60 to-space-900/80',
+    accent: 'text-biosphere-100',
+    icon: '🚀',
+  },
+  {
+    id: 'discover',
+    tag: 'Discover',
+    title: 'Visualize the story within your datasets',
+    description:
+      'Transform complex experiment results into beautiful visuals and knowledge graphs to share with your crew.',
+    points: ['Generate rich charts, comparisons, and timelines', 'Reveal hidden relationships across missions'],
+    gradient: 'from-cosmic-500/80 via-biosphere-500/60 to-space-900/70',
+    accent: 'text-space-50',
+    icon: '📈',
+  },
+  {
+    id: 'build',
+    tag: 'Create',
+    title: 'Capture insights and craft living research hubs',
+    description:
+      'Save findings, generate documents, and keep every breakthrough organized so your team can act fast.',
+    points: ['One-click document creation with AI assistance', 'Star and revisit chats to track evolving insights'],
+    gradient: 'from-biosphere-500/90 via-cosmic-500/70 to-space-900/80',
+    accent: 'text-biosphere-50',
+    icon: '✨',
+  },
+]
+
 export default function AppLayout({ children }: AppLayoutProps) {
   const navigate = useNavigate()
   const location = useLocation()
@@ -52,6 +99,11 @@ export default function AppLayout({ children }: AppLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [onboardingOpen, setOnboardingOpen] = useState(false)
+  const [onboardingStep, setOnboardingStep] = useState(0)
+  const [onboardingSaving, setOnboardingSaving] = useState(false)
+  const [userPrefs, setUserPrefs] = useState<UserPreferences | null>(null)
+  const [userSettingsFetched, setUserSettingsFetched] = useState(false)
 
   const openMobileSidebar = useCallback(() => setSidebarOpen(true), [])
   const closeMobileSidebar = useCallback(() => setSidebarOpen(false), [])
@@ -70,6 +122,55 @@ export default function AppLayout({ children }: AppLayoutProps) {
   const userName = profile?.nickname?.trim() || profile?.full_name?.trim() || (user?.user_metadata?.full_name as string | undefined)?.trim() || user?.email || 'Explorer'
   const userEmail = profile?.email ?? user?.email ?? 'Signed in'
   const avatarUrl = profile?.avatar_url ?? (user?.user_metadata?.avatar_url as string | undefined) ?? (user?.user_metadata?.picture as string | undefined) ?? undefined
+
+  useEffect(() => {
+    if (!user) {
+      setOnboardingOpen(false)
+      setUserPrefs(null)
+      setUserSettingsFetched(false)
+      setOnboardingStep(0)
+      return
+    }
+
+    let active = true
+
+    const evaluateOnboarding = async () => {
+      const { data, error } = await supabase
+        .from('user_settings')
+        .select('user_prefs')
+        .eq('user_id', user.id)
+        .maybeSingle()
+
+      if (!active) return
+
+      if (error) {
+        console.error('Failed to load user preferences', error)
+        setUserSettingsFetched(true)
+        return
+      }
+
+      const rawPrefs =
+        data && data.user_prefs && typeof data.user_prefs === 'object' && !Array.isArray(data.user_prefs)
+          ? (data.user_prefs as UserPreferences)
+          : ({} as UserPreferences)
+
+      const shouldShow =
+        typeof rawPrefs.show_onboarding === 'boolean' ? rawPrefs.show_onboarding : true
+
+      setUserPrefs(rawPrefs)
+      setOnboardingStep(0)
+      setOnboardingOpen(shouldShow)
+      setUserSettingsFetched(true)
+    }
+
+    if (!userSettingsFetched) {
+      evaluateOnboarding()
+    }
+
+    return () => {
+      active = false
+    }
+  }, [user, userSettingsFetched])
 
   const getInitials = (name: string) =>
     name
@@ -97,6 +198,48 @@ export default function AppLayout({ children }: AppLayoutProps) {
     await supabase.auth.signOut()
     resetChatState()
     navigate('/auth', { replace: true })
+  }
+
+  const handleOnboardingAdvance = async () => {
+    if (onboardingStep < ONBOARDING_SLIDES.length - 1) {
+      setOnboardingStep((prev) => Math.min(prev + 1, ONBOARDING_SLIDES.length - 1))
+      return
+    }
+
+    if (!user) {
+      setOnboardingOpen(false)
+      return
+    }
+
+    setOnboardingSaving(true)
+
+    const nextPrefs: UserPreferences = {
+      ...(userPrefs ?? {}),
+      show_onboarding: false,
+    }
+
+    const { error } = await supabase.from('user_settings').upsert(
+      {
+        user_id: user.id,
+        user_prefs: nextPrefs,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: 'user_id' },
+    )
+
+    if (error) {
+      console.error('Failed to update onboarding preference', error)
+      setOnboardingSaving(false)
+      return
+    }
+
+    setUserPrefs(nextPrefs)
+    setOnboardingOpen(false)
+    setOnboardingSaving(false)
+  }
+
+  const handleOnboardingBack = () => {
+    setOnboardingStep((prev) => Math.max(prev - 1, 0))
   }
 
   const chatSections = useMemo(
@@ -348,6 +491,101 @@ export default function AppLayout({ children }: AppLayoutProps) {
             <div className="space-y-2">
               <h3 className="text-sm font-medium">Appearance</h3>
               <p className="text-sm text-scheme-muted-text">Customize how BioQuery looks on your device.</p>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={onboardingOpen} onOpenChange={() => {}}>
+        <DialogContent className="max-w-4xl border-none bg-transparent p-0 shadow-none">
+          <div className="grid overflow-hidden rounded-3xl bg-scheme-surface text-scheme-text shadow-xl transition-theme md:grid-cols-[1.15fr_1fr]">
+            <div className="flex flex-col justify-between p-8 md:p-10">
+              <div>
+                <div className="mb-4 inline-flex items-center rounded-full bg-biosphere-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-biosphere-500">
+                  {ONBOARDING_SLIDES[onboardingStep].tag}
+                </div>
+                <h2 className="heading-h3 mb-4 font-bold md:mb-5">
+                  {ONBOARDING_SLIDES[onboardingStep].title}
+                </h2>
+                <p className="text-scheme-muted-text mb-6 md:mb-8">
+                  {ONBOARDING_SLIDES[onboardingStep].description}
+                </p>
+                <ul className="space-y-3 text-sm text-scheme-text">
+                  {ONBOARDING_SLIDES[onboardingStep].points.map((point) => (
+                    <li key={point} className="flex items-center gap-3 rounded-2xl bg-scheme-muted/60 px-4 py-3">
+                      <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-biosphere-500/20 text-biosphere-500">
+                        •
+                      </span>
+                      <span className="leading-snug">{point}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <div className="mt-8 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  {ONBOARDING_SLIDES.map((slide, index) => (
+                    <span
+                      key={slide.id}
+                      className={cn(
+                        'h-2.5 w-2.5 rounded-full transition-all duration-300',
+                        index === onboardingStep ? 'w-8 bg-biosphere-500' : 'bg-scheme-muted/70',
+                      )}
+                    />
+                  ))}
+                </div>
+                <div className="flex items-center gap-3">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleOnboardingBack}
+                    disabled={onboardingStep === 0 || onboardingSaving}
+                  >
+                    Back
+                  </Button>
+                  <Button
+                    variant="default"
+                    size="sm"
+                    onClick={handleOnboardingAdvance}
+                    disabled={onboardingSaving}
+                  >
+                    {onboardingStep === ONBOARDING_SLIDES.length - 1 ? 'Enter BioQuery' : 'Next'}
+                  </Button>
+                </div>
+              </div>
+            </div>
+            <div
+              className={cn(
+                'relative flex min-h-[320px] flex-col items-center justify-center gap-6 p-10 text-center text-white',
+                'bg-gradient-to-br',
+                ONBOARDING_SLIDES[onboardingStep].gradient,
+              )}
+            >
+              <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(255,255,255,0.15),transparent_60%)]" aria-hidden="true" />
+              <div className="relative flex h-28 w-28 items-center justify-center rounded-3xl bg-white/10 text-5xl shadow-lg backdrop-blur">
+                {ONBOARDING_SLIDES[onboardingStep].icon}
+              </div>
+              <div className="relative space-y-2">
+                <p className="text-sm font-semibold uppercase tracking-wide text-white/80">
+                  Guided Tour
+                </p>
+                <p className="text-lg font-medium leading-snug text-white">
+                  Slide {onboardingStep + 1} of {ONBOARDING_SLIDES.length}
+                </p>
+              </div>
+              <div className="relative grid w-full grid-cols-3 gap-3 text-left text-xs text-white/80">
+                <div className="rounded-2xl bg-white/10 p-4 backdrop-blur">
+                  <p className="font-semibold">Search brilliance</p>
+                  <p className="mt-1 leading-snug text-white/70">Grounded NASA publications every time you ask a question.</p>
+                </div>
+                <div className="rounded-2xl bg-white/10 p-4 backdrop-blur">
+                  <p className="font-semibold">Visual insights</p>
+                  <p className="mt-1 leading-snug text-white/70">Turn summaries into charts, graphs, and storyboards.</p>
+                </div>
+                <div className="rounded-2xl bg-white/10 p-4 backdrop-blur">
+                  <p className="font-semibold">Team ready</p>
+                  <p className="mt-1 leading-snug text-white/70">Share discoveries, star chats, and stay in sync.</p>
+                </div>
+              </div>
             </div>
           </div>
         </DialogContent>
