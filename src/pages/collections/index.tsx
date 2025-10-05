@@ -162,6 +162,7 @@ export default function CollectionsPage() {
 						tags,
 						createdAt: resolveDate(entry.created_at),
 						chatName: chatRelation?.chat_name ?? null,
+						previewImageUrl: null,
 						source: 'artifact',
 					}
 				})

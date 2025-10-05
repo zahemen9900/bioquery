@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useId, useMemo, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import {
@@ -273,10 +273,173 @@ const toKnowledgeGraphData = (artifact: ArtifactReference): KnowledgeGraphData |
 
 const CHART_COLORS = ['#60a5fa', '#34d399', '#fbbf24', '#f472b6', '#a78bfa', '#f87171']
 
-const formatToolName = (name: string): string =>
-	name
-		.replace(/_/g, ' ')
-		.replace(/\b\w/g, (char) => char.toUpperCase())
+type GraphVisualizationProps = {
+	nodes: KnowledgeGraphNode[]
+	edges: KnowledgeGraphEdge[]
+	selectedNodeId: string | null
+	onSelect?: (nodeId: string) => void
+}
+
+const GraphVisualization = ({ nodes, edges, selectedNodeId, onSelect }: GraphVisualizationProps) => {
+	const size = 800
+	const center = size / 2
+	const activeNodeId = selectedNodeId && nodes.some((node) => node.id === selectedNodeId) ? selectedNodeId : nodes[0]?.id ?? null
+	const rawId = useId()
+	const gradientId = useMemo(() => rawId.replace(/:/g, ''), [rawId])
+
+	const layout = useMemo(() => {
+		const positions = new Map<string, { x: number; y: number }>()
+		if (!nodes.length) {
+			return positions
+		}
+
+		const focusId = activeNodeId && nodes.some((node) => node.id === activeNodeId) ? activeNodeId : nodes[0]?.id
+		if (!focusId) {
+			return positions
+		}
+
+		const connectedIds = new Set<string>()
+		for (const edge of edges) {
+			if (edge.source === focusId) connectedIds.add(edge.target)
+			if (edge.target === focusId) connectedIds.add(edge.source)
+		}
+
+		const centerPoint = { x: center, y: center }
+		positions.set(focusId, centerPoint)
+
+		const others = nodes.filter((node) => node.id !== focusId)
+		const primary = others.filter((node) => connectedIds.has(node.id))
+		const secondary = others.filter((node) => !connectedIds.has(node.id))
+
+		const placeNodes = (list: KnowledgeGraphNode[], radius: number) => {
+			if (!list.length) return
+			const angleStep = (Math.PI * 2) / list.length
+			list.forEach((node, index) => {
+				const angle = -Math.PI / 2 + index * angleStep
+				positions.set(node.id, {
+					x: center + Math.cos(angle) * radius,
+					y: center + Math.sin(angle) * radius,
+				})
+			})
+		}
+
+		placeNodes(primary, size * 0.32)
+		placeNodes(secondary, size * 0.45)
+
+		return positions
+	}, [nodes, edges, activeNodeId, center])
+
+	const neighborSet = useMemo(() => {
+		const neighbors = new Set<string>()
+		if (!activeNodeId) return neighbors
+		for (const edge of edges) {
+			if (edge.source === activeNodeId) neighbors.add(edge.target)
+			if (edge.target === activeNodeId) neighbors.add(edge.source)
+		}
+		return neighbors
+	}, [edges, activeNodeId])
+
+	if (!nodes.length) {
+		return (
+			<div className="flex h-full items-center justify-center text-sm text-scheme-muted-text">
+				No graph data available.
+			</div>
+		)
+	}
+
+	const handleSelect = (nodeId: string) => {
+		if (onSelect) onSelect(nodeId)
+	}
+
+	return (
+		<svg viewBox={`0 0 ${size} ${size}`} className="h-full w-full">
+			<defs>
+				<radialGradient id={`${gradientId}-bg`} cx="50%" cy="50%" r="70%">
+					<stop offset="0%" stopColor="rgba(59, 130, 246, 0.1)" />
+					<stop offset="100%" stopColor="rgba(15, 23, 42, 0.05)" />
+				</radialGradient>
+			</defs>
+			<rect width={size} height={size} fill={`url(#${gradientId}-bg)`} rx={38} ry={38} />
+			{edges.map((edge, index) => {
+				const source = layout.get(edge.source)
+				const target = layout.get(edge.target)
+				if (!source || !target) return null
+				const isActive = activeNodeId ? edge.source === activeNodeId || edge.target === activeNodeId : false
+				const midX = (source.x + target.x) / 2
+				const midY = (source.y + target.y) / 2
+				return (
+					<g key={`edge-${edge.source}-${edge.target}-${index}`}>
+						<line
+							x1={source.x}
+							y1={source.y}
+							x2={target.x}
+							y2={target.y}
+							stroke={isActive ? 'rgba(96, 165, 250, 0.65)' : 'rgba(148, 163, 184, 0.35)'}
+							strokeWidth={isActive ? 3 : 1.6}
+							strokeLinecap="round"
+						/>
+						{edge.relation ? (
+							<text
+								x={midX}
+								y={midY - 6}
+								textAnchor="middle"
+								fontSize={12}
+								fill="rgba(226, 232, 240, 0.7)"
+							>
+								{edge.relation}
+							</text>
+						) : null}
+					</g>
+				)
+			})}
+			{nodes.map((node) => {
+				const position = layout.get(node.id)
+				if (!position) return null
+				const isActive = node.id === activeNodeId
+				const isNeighbor = neighborSet.has(node.id)
+				const radius = isActive ? 26 : isNeighbor ? 20 : 16
+				const fill = isActive
+					? 'rgba(52, 211, 153, 0.9)'
+					: isNeighbor
+						? 'rgba(96, 165, 250, 0.85)'
+						: 'rgba(148, 163, 184, 0.75)'
+				return (
+					<g
+						key={node.id}
+						transform={`translate(${position.x}, ${position.y})`}
+						className="cursor-pointer transition-transform duration-200 hover:scale-105"
+						onClick={() => handleSelect(node.id)}
+					>
+						{isActive ? (
+							<circle r={radius + 8} fill="none" stroke="rgba(52, 211, 153, 0.4)" strokeWidth={3} />
+						) : null}
+						<circle r={radius} fill={fill} stroke="rgba(15, 23, 42, 0.9)" strokeWidth={isActive ? 3 : 2} />
+						<text
+							y={radius + 20}
+							textAnchor="middle"
+							fontSize={isActive ? 16 : 13}
+							fill="rgba(226, 232, 240, 0.95)"
+							style={{ pointerEvents: 'none' }}
+						>
+							{node.label}
+						</text>
+						{node.type ? (
+							<text
+								y={radius + 36}
+								textAnchor="middle"
+								fontSize={11}
+								fill="rgba(148, 163, 184, 0.7)"
+								style={{ pointerEvents: 'none' }}
+							>
+								{node.type.toUpperCase()}
+							</text>
+						) : null}
+					</g>
+				)
+			})}
+		</svg>
+	)
+}
 
 const extractToolMetadata = (message: ChatMessage): { order: number[]; map: Map<number, ToolMetadata> } => {
 	const map = new Map<number, ToolMetadata>()
@@ -589,7 +752,7 @@ export function ToolCallResults({ message, toolId }: ToolCallResultsProps) {
 		setDocumentModal(loaded)
 	}
 
-	const renderImageAsset = (image: ImageAssetReference, call: ToolCallEntry | null) => {
+	const renderImageAsset = (image: ImageAssetReference) => {
 		return (
 			<div className="mt-3 rounded-2xl border border-biosphere-500/25 bg-biosphere-500/5 p-4 backdrop-blur">
 				<div className="flex items-start gap-3">
@@ -598,22 +761,17 @@ export function ToolCallResults({ message, toolId }: ToolCallResultsProps) {
 					</span>
 					<div className="flex-1 space-y-3">
 						<div className="space-y-1">
-							<p className="text-sm font-semibold text-scheme-text">
-								{call ? `${formatToolName(call.name)} image` : 'Generated image'}
-							</p>
+							<p className="text-sm font-semibold text-scheme-text">Generated image</p>
 							<p className="text-xs text-scheme-muted-text/80">{formatExpiryLabel(image.expiresAt)}</p>
 						</div>
 						<div className="overflow-hidden rounded-xl border border-biosphere-500/25 bg-space-900/40">
 							<img
 								src={image.url}
-								alt={image.prompt ?? 'Generated image'}
+								alt="Generated image"
 								className="max-h-72 w-full object-cover"
 								loading="lazy"
 							/>
 						</div>
-						{image.prompt ? (
-							<p className="text-xs leading-relaxed text-scheme-muted-text/80">Prompt: {image.prompt}</p>
-						) : null}
 						{image.tags.length ? (
 							<div className="flex flex-wrap gap-1.5">
 								{image.tags.map((tag) => (
@@ -772,17 +930,6 @@ export function ToolCallResults({ message, toolId }: ToolCallResultsProps) {
 		}
 	}
 
-	const renderStatusPill = (call: ToolCallEntry | null) => {
-		if (!call) return null
-		if (call.status === 'pending') {
-			return <Badge className="rounded-full bg-amber-500/15 text-[0.7rem] text-amber-300">Running…</Badge>
-		}
-		if (call.status === 'error') {
-			return <Badge className="rounded-full bg-rose-500/20 text-[0.7rem] text-rose-200">Failed</Badge>
-		}
-		return <Badge className="rounded-full bg-emerald-500/15 text-[0.7rem] text-emerald-200">Ready</Badge>
-	}
-
 	const renderGenericArtifact = (artifact: ArtifactReference, call: ToolCallEntry | null) => {
 		const iconKey = typeof artifact.type === 'string' ? artifact.type.toLowerCase() : ''
 		const displayType = typeof artifact.type === 'string' && artifact.type.length > 0 ? artifact.type : 'artifact'
@@ -803,7 +950,7 @@ export function ToolCallResults({ message, toolId }: ToolCallResultsProps) {
 						<div className="space-y-1">
 							<p className="text-sm font-semibold text-scheme-text">{artifact.title ?? 'Generated artifact'}</p>
 							<p className="text-xs text-scheme-muted-text">
-								{call ? formatToolName(call.name) : 'Artifact'} • {displayType.replace('_', ' ')}
+								{displayType.replace('_', ' ')}
 							</p>
 						</div>
 					</div>
@@ -831,11 +978,6 @@ export function ToolCallResults({ message, toolId }: ToolCallResultsProps) {
 					>
 						{isSaved ? 'Saved to collections' : isSaving ? 'Saving…' : 'Save to collections'}
 					</Button>
-					{call ? (
-						<Badge variant="secondary" className="rounded-full bg-scheme-surface/80 text-xs text-scheme-muted-text">
-							Artifact #{call.id}
-						</Badge>
-					) : null}
 				</div>
 			</div>
 		)
@@ -862,7 +1004,7 @@ export function ToolCallResults({ message, toolId }: ToolCallResultsProps) {
 						<div className="space-y-1">
 							<p className="text-sm font-semibold text-scheme-text">{timelineTitle}</p>
 							<p className="text-xs text-scheme-muted-text">
-								{call ? formatToolName(call.name) : 'Timeline'} • {displayType.replace('_', ' ')}
+								{displayType.replace('_', ' ')}
 							</p>
 						</div>
 					</div>
@@ -910,11 +1052,6 @@ export function ToolCallResults({ message, toolId }: ToolCallResultsProps) {
 					>
 						{isSaved ? 'Saved to collections' : isSaving ? 'Saving…' : 'Save to collections'}
 					</Button>
-					{call ? (
-						<Badge variant="secondary" className="rounded-full bg-scheme-surface/80 text-xs text-scheme-muted-text">
-							Artifact #{call.id}
-						</Badge>
-					) : null}
 				</div>
 			</div>
 		)
@@ -942,7 +1079,7 @@ export function ToolCallResults({ message, toolId }: ToolCallResultsProps) {
 						<div className="space-y-1">
 							<p className="text-sm font-semibold text-scheme-text">{chartTitle}</p>
 							<p className="text-xs text-scheme-muted-text">
-								{call ? formatToolName(call.name) : 'Visualization'} • {chartTypeLabel}
+								{chartTypeLabel}
 							</p>
 						</div>
 					</div>
@@ -989,11 +1126,6 @@ export function ToolCallResults({ message, toolId }: ToolCallResultsProps) {
 					>
 						{isSaved ? 'Saved to collections' : isSaving ? 'Saving…' : 'Save to collections'}
 					</Button>
-					{call ? (
-						<Badge variant="secondary" className="rounded-full bg-scheme-surface/80 text-xs text-scheme-muted-text">
-							Artifact #{call.id}
-						</Badge>
-					) : null}
 				</div>
 			</div>
 		)
@@ -1021,7 +1153,7 @@ export function ToolCallResults({ message, toolId }: ToolCallResultsProps) {
 						<div className="space-y-1">
 							<p className="text-sm font-semibold text-scheme-text">{artifact.title ?? 'Knowledge graph'}</p>
 							<p className="text-xs text-scheme-muted-text">
-								{call ? formatToolName(call.name) : 'Knowledge graph'} • {nodeCount} nodes · {edgeCount} edges
+								{nodeCount} nodes · {edgeCount} edges
 							</p>
 						</div>
 					</div>
@@ -1071,11 +1203,6 @@ export function ToolCallResults({ message, toolId }: ToolCallResultsProps) {
 					>
 						{isSaved ? 'Saved to collections' : isSaving ? 'Saving…' : 'Save to collections'}
 					</Button>
-					{call ? (
-						<Badge variant="secondary" className="rounded-full bg-scheme-surface/80 text-xs text-scheme-muted-text">
-							Artifact #{call.id}
-						</Badge>
-					) : null}
 				</div>
 			</div>
 		)
@@ -1112,7 +1239,7 @@ export function ToolCallResults({ message, toolId }: ToolCallResultsProps) {
 						<div>
 							<p className="text-sm font-semibold text-scheme-text">{document.title ?? 'Generated document'}</p>
 							<p className="text-xs text-scheme-muted-text">
-								{call ? formatToolName(call.name) : 'Document'} • {document.documentType ?? 'document'}
+								{document.documentType ?? 'document'}
 							</p>
 						</div>
 						{document.preview ? (
@@ -1149,11 +1276,6 @@ export function ToolCallResults({ message, toolId }: ToolCallResultsProps) {
 							>
 								{isSaved ? 'Saved to collections' : isSaving ? 'Saving…' : 'Save to collections'}
 							</Button>
-							{call ? (
-								<Badge variant="secondary" className="rounded-full bg-scheme-surface/80 text-xs text-scheme-muted-text">
-									Document #{call.id}
-								</Badge>
-							) : null}
 						</div>
 					</div>
 				</div>
@@ -1165,27 +1287,11 @@ export function ToolCallResults({ message, toolId }: ToolCallResultsProps) {
 		<div className="mt-3 rounded-2xl border border-rose-500/40 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">
 			<p className="flex items-center gap-2 font-semibold">
 				<HiOutlineXCircle className="h-5 w-5" />
-				{formatToolName(call.name)} failed
+				This result could not be generated
 			</p>
 			{call.error ? <p className="mt-1 text-xs text-rose-200/80">{call.error}</p> : null}
 		</div>
 	)
-
-	const renderSummary = (call: ToolCallEntry) => {
-		if (!call.summary) return null
-		const summaryEntries = Object.entries(call.summary).filter(([, value]) => typeof value !== 'object')
-		if (!summaryEntries.length) return null
-		return (
-			<div className="mt-3 rounded-2xl border border-scheme-border-subtle/60 bg-scheme-surface/70 px-4 py-3 text-xs text-scheme-muted-text">
-				{summaryEntries.map(([key, value]) => (
-					<div key={key} className="flex items-center justify-between gap-4">
-						<span className="font-semibold text-scheme-text/80">{formatToolName(key)}</span>
-						<span>{String(value)}</span>
-					</div>
-				))}
-			</div>
-		)
-	}
 
 	const renderBlock = (id: number) => {
 		const entry = metadata.map.get(id)
@@ -1194,22 +1300,17 @@ export function ToolCallResults({ message, toolId }: ToolCallResultsProps) {
 		const { call, artifact, document, image } = entry
 		const resolvedArtifact = artifact ? artifactCache[artifact.id] ?? artifact : null
 		const resolvedDocument = document ? documentCache[document.id] ?? document : null
-		const statusPill = renderStatusPill(call)
+
+		if (!resolvedArtifact && !resolvedDocument && !image && (!call || call.status !== 'error')) {
+			return null
+		}
 
 		return (
-			<div key={`tool-block-${id}`} className="my-2 rounded-2xl border border-scheme-border-subtle/70 bg-scheme-surface/80 p-3">
-				<div className="flex items-center justify-between gap-2">
-					<div className="flex items-center gap-2 text-sm font-semibold text-scheme-text">
-						<span>{call ? formatToolName(call.name) : `Tool #${id}`}</span>
-						<span className="text-xs text-scheme-muted-text/70">#{id}</span>
-					</div>
-					{statusPill}
-				</div>
+			<div key={`tool-block-${id}`} className="my-3 space-y-3">
 				{call && call.status === 'error' ? renderError(call) : null}
 				{resolvedArtifact ? renderArtifact(resolvedArtifact, call) : null}
 				{resolvedDocument ? renderDocument(resolvedDocument, call) : null}
-				{image ? renderImageAsset(image, call) : null}
-				{call && call.status === 'success' && !resolvedArtifact && !resolvedDocument && !image ? renderSummary(call) : null}
+				{image ? renderImageAsset(image) : null}
 			</div>
 		)
 	}
@@ -1224,34 +1325,48 @@ export function ToolCallResults({ message, toolId }: ToolCallResultsProps) {
 			}}
 		>
 			{documentModal ? (
-				<DialogContent className="max-h-[80vh] max-w-3xl">
-					<DialogHeader>
-						<DialogTitle>{documentModal.title ?? 'Generated document'}</DialogTitle>
-						<DialogDescription>
-							{documentModal.documentType ?? 'document'}
-							{documentModal.tags.length ? ` • ${documentModal.tags.join(', ')}` : ''}
+				<DialogContent className="max-h-[90vh] max-w-5xl overflow-hidden">
+					<DialogHeader className="pr-8">
+						<DialogTitle className="text-2xl font-bold leading-tight">{documentModal.title ?? 'Generated document'}</DialogTitle>
+						<DialogDescription className="flex flex-wrap items-center gap-2 text-sm">
+							<span className="rounded-full bg-biosphere-500/15 px-3 py-1 text-xs font-medium uppercase tracking-wide text-biosphere-200">
+								{documentModal.documentType ?? 'document'}
+							</span>
+							{documentModal.tags.length ? (
+								<>
+									{documentModal.tags.map((tag) => (
+										<span key={tag} className="rounded-full border border-biosphere-500/30 bg-biosphere-500/5 px-3 py-1 text-xs text-biosphere-300 transition-colors hover:bg-biosphere-500/15">
+											{tag}
+										</span>
+									))}
+								</>
+							) : null}
 						</DialogDescription>
 					</DialogHeader>
-					<ScrollArea className="mt-4 max-h-[68vh] pr-2">
-						<div className="space-y-4">
+					<ScrollArea className="mt-6 h-[calc(90vh-200px)] max-h-[calc(90vh-180px)] pr-4">
+						<div className="space-y-8">
 							{documentModal.imageLink ? (
-								<div className="overflow-hidden rounded-2xl border border-scheme-border-subtle/70">
-									<img src={documentModal.imageLink} alt={documentModal.title ?? 'Document illustration'} className="w-full object-cover" />
+								<div className="group relative overflow-hidden rounded-2xl border border-biosphere-500/25 shadow-2xl transition-all hover:border-biosphere-500/40 hover:shadow-biosphere-500/10">
+									<img 
+										src={documentModal.imageLink} 
+										alt={documentModal.title ?? 'Document illustration'} 
+										className="w-full transition-transform duration-300 group-hover:scale-[1.02]" 
+									/>
+									<div className="absolute inset-0 bg-gradient-to-t from-space-900/30 to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
 								</div>
 							) : null}
-							{documentModal.imagePrompt ? (
-								<p className="text-xs text-scheme-muted-text/80">Image prompt: {documentModal.imagePrompt}</p>
-							) : null}
-							{documentModal.body ? (
-								<ReactMarkdown
-									remarkPlugins={[remarkGfm]}
-									className="text-sm leading-relaxed text-scheme-text/90 [&>*]:mb-4 [&>*:last-child]:mb-0 [&_h2]:text-lg [&_h3]:text-base [&_strong]:text-scheme-text [&_a]:text-biosphere-300 hover:[&_a]:text-biosphere-200 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_blockquote]:border-l [&_blockquote]:border-scheme-border-subtle [&_blockquote]:pl-3 [&_blockquote]:text-scheme-muted-text/80 [&_code]:rounded [&_code]:bg-scheme-muted/20 [&_code]:px-1 [&_code]:py-0.5 [&_table]:w-full [&_th]:text-left [&_th]:font-semibold"
-								>
-									{documentModal.body}
-								</ReactMarkdown>
-							) : (
-								<p className="text-sm text-scheme-muted-text">No document body was provided.</p>
-							)}
+							<div className="rounded-2xl border border-scheme-border-subtle/40 bg-gradient-to-br from-scheme-surface/50 to-scheme-surface/30 p-8 shadow-inner">
+								{documentModal.body ? (
+									<ReactMarkdown
+										remarkPlugins={[remarkGfm]}
+										className="prose prose-invert max-w-none text-base leading-relaxed text-scheme-text/95 [&>*]:mb-5 [&>*:last-child]:mb-0 [&_h1]:mb-6 [&_h1]:text-2xl [&_h1]:font-bold [&_h1]:text-biosphere-200 [&_h2]:mb-4 [&_h2]:text-xl [&_h2]:font-bold [&_h2]:text-biosphere-300 [&_h3]:mb-3 [&_h3]:text-lg [&_h3]:font-semibold [&_h3]:text-scheme-text [&_p]:leading-relaxed [&_strong]:font-semibold [&_strong]:text-scheme-text [&_em]:italic [&_em]:text-biosphere-200/90 [&_a]:font-medium [&_a]:text-biosphere-400 [&_a]:underline [&_a]:decoration-biosphere-500/30 [&_a]:underline-offset-2 [&_a]:transition-colors hover:[&_a]:text-biosphere-300 hover:[&_a]:decoration-biosphere-400/60 [&_ul]:list-disc [&_ul]:space-y-2 [&_ul]:pl-6 [&_ol]:list-decimal [&_ol]:space-y-2 [&_ol]:pl-6 [&_li]:leading-relaxed [&_blockquote]:border-l-4 [&_blockquote]:border-biosphere-500/40 [&_blockquote]:bg-scheme-muted/10 [&_blockquote]:py-2 [&_blockquote]:pl-4 [&_blockquote]:pr-3 [&_blockquote]:italic [&_blockquote]:text-scheme-muted-text [&_code]:rounded [&_code]:bg-biosphere-500/10 [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-sm [&_code]:text-biosphere-200 [&_pre]:overflow-x-auto [&_pre]:rounded-xl [&_pre]:border [&_pre]:border-scheme-border-subtle/50 [&_pre]:bg-space-900/40 [&_pre]:p-4 [&_table]:w-full [&_table]:border-collapse [&_table]:overflow-hidden [&_table]:rounded-lg [&_th]:border [&_th]:border-scheme-border-subtle/50 [&_th]:bg-biosphere-500/10 [&_th]:px-4 [&_th]:py-2 [&_th]:text-left [&_th]:font-semibold [&_th]:text-biosphere-200 [&_td]:border [&_td]:border-scheme-border-subtle/40 [&_td]:px-4 [&_td]:py-2 [&_hr]:my-8 [&_hr]:border-scheme-border-subtle/30"
+									>
+										{documentModal.body}
+									</ReactMarkdown>
+								) : (
+									<p className="text-center text-sm text-scheme-muted-text">No document body was provided.</p>
+								)}
+							</div>
 						</div>
 					</ScrollArea>
 				</DialogContent>
@@ -1270,38 +1385,46 @@ export function ToolCallResults({ message, toolId }: ToolCallResultsProps) {
 			}}
 		>
 			{timelineModal ? (
-				<DialogContent className="max-w-4xl">
-					<DialogHeader>
-						<DialogTitle>{timelineModal.data.title}</DialogTitle>
-						<DialogDescription>
-							{timelineModal.data.sections.length} section{timelineModal.data.sections.length === 1 ? '' : 's'} timeline
+				<DialogContent className="max-w-6xl max-h-[92vh] overflow-hidden">
+					<DialogHeader className="pr-8">
+						<DialogTitle className="text-2xl font-bold">{timelineModal.data.title}</DialogTitle>
+						<DialogDescription className="flex flex-wrap items-center gap-2 text-sm">
+							<span className="rounded-full bg-biosphere-500/15 px-3 py-1 text-xs font-medium uppercase tracking-wide text-biosphere-200">
+								{timelineModal.data.sections.length} section{timelineModal.data.sections.length === 1 ? '' : 's'}
+							</span>
+							{timelineModal.data.tags.length ? (
+								<>
+									{timelineModal.data.tags.slice(0, 3).map((tag) => (
+										<span key={tag} className="rounded-full border border-biosphere-500/30 bg-biosphere-500/5 px-3 py-1 text-xs text-biosphere-300">
+											{tag}
+										</span>
+									))}
+								</>
+							) : null}
 						</DialogDescription>
 					</DialogHeader>
-					{timelineModal.call ? (
-						<p className="text-xs text-scheme-muted-text/80">
-							Generated by {formatToolName(timelineModal.call.name)}
-						</p>
-					) : null}
-					<div className="mt-4 flex flex-col gap-4">
-						<div className="flex flex-wrap items-center gap-2">
-							{timelineModal.data.sections.map((section, index) => {
-								const isActive = index === timelineIndex
-								return (
-									<button
-										type="button"
-										key={`${section.title}-${index}`}
-										onClick={() => setTimelineIndex(index)}
-										className={`rounded-full border px-3 py-1 text-xs transition ${
-											isActive
-												? 'border-biosphere-500 bg-biosphere-500/20 text-biosphere-100'
-												: 'border-scheme-border-subtle text-scheme-muted-text hover:border-biosphere-500/60 hover:text-biosphere-100'
-										}`}
-									>
-										Step {index + 1}
-									</button>
-								)
-							})}
-						</div>
+					<div className="mt-6 flex flex-col gap-4">
+						<ScrollArea className="max-h-16">
+							<div className="flex items-center gap-2 pb-2">
+								{timelineModal.data.sections.map((section, index) => {
+									const isActive = index === timelineIndex
+									return (
+										<button
+											type="button"
+											key={`${section.title}-${index}`}
+											onClick={() => setTimelineIndex(index)}
+											className={`flex-shrink-0 rounded-full border px-4 py-2 text-sm font-medium transition-all ${
+												isActive
+													? 'border-biosphere-500 bg-biosphere-500/25 text-biosphere-100 shadow-lg shadow-biosphere-500/20'
+													: 'border-scheme-border-subtle text-scheme-muted-text hover:border-biosphere-500/60 hover:bg-biosphere-500/10 hover:text-biosphere-100'
+											}`}
+										>
+											{index + 1}
+										</button>
+									)
+								})}
+							</div>
+						</ScrollArea>
 						{(() => {
 							const sections = timelineModal.data.sections
 							const safeIndex = Math.min(timelineIndex, sections.length - 1)
@@ -1310,20 +1433,23 @@ export function ToolCallResults({ message, toolId }: ToolCallResultsProps) {
 								return <p className="text-sm text-scheme-muted-text">No sections available.</p>
 							}
 							return (
-								<ScrollArea className="max-h-[55vh] rounded-2xl border border-scheme-border-subtle/60 bg-scheme-surface/70 p-5">
-									<div className="space-y-3 text-sm text-scheme-text/90">
-										<p className="text-xs font-semibold uppercase tracking-wide text-scheme-muted-text/80">
-											Step {safeIndex + 1}
-										</p>
-										<h3 className="text-base font-semibold text-scheme-text">{activeSection.title}</h3>
-										<p className="leading-relaxed">{activeSection.description}</p>
+								<ScrollArea className="h-[calc(92vh-260px)] max-h-[calc(92vh-260px)] rounded-2xl border border-biosphere-500/20 bg-gradient-to-br from-scheme-surface/95 to-scheme-surface/80 shadow-xl">
+									<div className="space-y-6 p-8">
+										<div className="flex items-center gap-4">
+											<span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-biosphere-500/25 text-base font-bold text-biosphere-200 shadow-lg shadow-biosphere-500/20">
+												{safeIndex + 1}
+											</span>
+											<h3 className="text-xl font-bold text-scheme-text">{activeSection.title}</h3>
+										</div>
+										<p className="text-base leading-relaxed text-scheme-text/95">{activeSection.description}</p>
 										{activeSection.imageLink ? (
-											<div className="overflow-hidden rounded-2xl border border-scheme-border-subtle/60">
-												<img src={activeSection.imageLink} alt={activeSection.title} className="w-full object-cover" />
+											<div className="overflow-hidden rounded-2xl border border-biosphere-500/25 shadow-2xl">
+												<img 
+													src={activeSection.imageLink} 
+													alt={activeSection.title} 
+													className="w-full h-auto object-contain" 
+												/>
 											</div>
-										) : null}
-										{activeSection.imagePrompt ? (
-											<p className="text-xs text-scheme-muted-text/80">Image prompt: {activeSection.imagePrompt}</p>
 										) : null}
 									</div>
 								</ScrollArea>
@@ -1366,15 +1492,25 @@ export function ToolCallResults({ message, toolId }: ToolCallResultsProps) {
 			}
 		}}>
 			{visualModal ? (
-				<DialogContent className="max-w-3xl">
+				<DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden">
 					<DialogHeader>
-						<DialogTitle>{visualModal.data.title}</DialogTitle>
-						<DialogDescription>
-							{visualModal.data.chartType} chart with {visualModal.data.dataPoints.length} point
+						<DialogTitle className="text-xl font-bold">{visualModal.data.title}</DialogTitle>
+						<DialogDescription className="text-sm">
+							{visualModal.data.chartType} • {visualModal.data.dataPoints.length} data point
 							{visualModal.data.dataPoints.length === 1 ? '' : 's'}
+							{visualModal.data.tags.length ? (
+								<span className="ml-3">
+									{visualModal.data.tags.slice(0, 3).map((tag) => (
+										<span key={tag} className="ml-1 rounded-full bg-biosphere-500/10 px-2 py-0.5 text-xs text-biosphere-300">
+											{tag}
+										</span>
+									))}
+								</span>
+							) : null}
 						</DialogDescription>
 					</DialogHeader>
-					<div className="mt-4 space-y-6">
+					<ScrollArea className="mt-6 max-h-[75vh] pr-4">
+					<div className="space-y-6">
 						{(() => {
 							const { chartType, dataPoints } = visualModal.data
 							const normalizedType = chartType.toLowerCase()
@@ -1438,6 +1574,7 @@ export function ToolCallResults({ message, toolId }: ToolCallResultsProps) {
 							)
 						})()}
 					</div>
+					</ScrollArea>
 				</DialogContent>
 			) : null}
 		</Dialog>
@@ -1454,84 +1591,112 @@ export function ToolCallResults({ message, toolId }: ToolCallResultsProps) {
 			}}
 		>
 			{graphModal ? (
-				<DialogContent className="max-w-4xl">
+				<DialogContent className="max-w-6xl max-h-[90vh] overflow-hidden">
 					<DialogHeader>
-						<DialogTitle>{graphModal.artifact.title ?? 'Knowledge graph'}</DialogTitle>
-						<DialogDescription>
-							{graphModal.data.nodes.length} nodes • {graphModal.data.edges.length} edges
+						<DialogTitle className="text-xl font-bold">{graphModal.artifact.title ?? 'Knowledge graph'}</DialogTitle>
+						<DialogDescription className="text-sm">
+							{graphModal.data.nodes.length} nodes • {graphModal.data.edges.length} connections
+							{graphModal.data.tags.length ? (
+								<span className="ml-3">
+									{graphModal.data.tags.slice(0, 3).map((tag) => (
+										<span key={tag} className="ml-1 rounded-full bg-biosphere-500/10 px-2 py-0.5 text-xs text-biosphere-300">
+											{tag}
+										</span>
+									))}
+								</span>
+							) : null}
 						</DialogDescription>
 					</DialogHeader>
-					<div className="mt-4 grid gap-6 md:grid-cols-[220px_1fr]">
-						<div className="space-y-3">
-							<p className="text-xs font-semibold uppercase tracking-wide text-scheme-muted-text/80">Nodes</p>
-							<ScrollArea className="max-h-[55vh] rounded-2xl border border-scheme-border-subtle/60">
-								<div className="flex flex-col divide-y divide-scheme-border-subtle/50">
-									{graphModal.data.nodes.map((node) => {
-										const isActive = node.id === graphSelection
-										return (
-											<button
-												type="button"
-												key={node.id}
-												onClick={() => setGraphSelection(node.id)}
-												className={`flex flex-col items-start gap-1 px-3 py-3 text-left transition ${
-													isActive
-														? 'bg-biosphere-500/15 text-biosphere-100'
-														: 'text-scheme-text hover:bg-biosphere-500/10'
-												}`}
-											>
-												<span className="text-sm font-semibold">{node.label}</span>
-												{node.type ? (
-													<span className="text-[0.65rem] uppercase tracking-wide text-scheme-muted-text/70">
-														{node.type}
-													</span>
-												) : null}
-											</button>
-										)
-									})}
-									{graphModal.data.nodes.length === 0 ? (
-										<p className="px-3 py-4 text-xs text-scheme-muted-text">No nodes defined.</p>
+					{(() => {
+						const nodeMap = new Map(graphModal.data.nodes.map((node) => [node.id, node]))
+						const activeNodeId = graphSelection ?? graphModal.data.nodes[0]?.id ?? null
+						const selectedNode = activeNodeId ? nodeMap.get(activeNodeId) ?? null : null
+						const relatedEdges = selectedNode
+							? graphModal.data.edges.filter((edge) => edge.source === selectedNode.id || edge.target === selectedNode.id)
+							: []
+						return (
+							<div className="mt-6 grid gap-6 lg:grid-cols-[280px_1fr]">
+								<div className="space-y-4">
+									<div className="flex items-center gap-2">
+										<div className="h-2 w-2 rounded-full bg-biosphere-500" />
+										<p className="text-sm font-semibold text-scheme-text">Entities</p>
+									</div>
+									<ScrollArea className="max-h-[65vh] rounded-2xl border border-biosphere-500/20 bg-scheme-surface/50">
+										<div className="flex flex-col">
+											{graphModal.data.nodes.map((node) => {
+												const isActive = node.id === activeNodeId
+												return (
+													<button
+														type="button"
+														key={node.id}
+														onClick={() => setGraphSelection(node.id)}
+														className={`flex flex-col items-start gap-1.5 border-b border-scheme-border-subtle/30 px-4 py-3 text-left transition-all ${
+															isActive
+																? 'bg-biosphere-500/20 text-biosphere-100 shadow-inner'
+																: 'text-scheme-text hover:bg-biosphere-500/10'
+														}`}
+													>
+														<span className="text-sm font-semibold">{node.label}</span>
+														{node.type ? (
+															<span className="rounded-full bg-scheme-muted/20 px-2 py-0.5 text-[0.65rem] uppercase tracking-wide text-scheme-muted-text">
+																{node.type}
+															</span>
+														) : null}
+													</button>
+												)
+											})}
+											{graphModal.data.nodes.length === 0 ? (
+												<p className="px-4 py-6 text-xs text-scheme-muted-text">No entities found.</p>
+											) : null}
+										</div>
+									</ScrollArea>
+								</div>
+								<div className="space-y-6">
+									<div className="relative h-[60vh] min-h-[420px] overflow-hidden rounded-3xl border border-biosphere-500/25 bg-gradient-to-br from-scheme-surface/90 via-scheme-surface/70 to-scheme-surface/60 p-4 shadow-2xl">
+										<GraphVisualization
+											nodes={graphModal.data.nodes}
+											edges={graphModal.data.edges}
+											selectedNodeId={activeNodeId}
+											onSelect={(nodeId) => setGraphSelection(nodeId)}
+										/>
+									</div>
+									{graphModal.data.context ? (
+										<div className="rounded-2xl border border-biosphere-500/20 bg-gradient-to-br from-biosphere-500/10 to-scheme-surface/70 p-5 shadow-lg">
+											<p className="mb-2 text-sm font-semibold text-biosphere-200">Context</p>
+											<p className="text-sm leading-relaxed text-scheme-text/90">{graphModal.data.context}</p>
+										</div>
+									) : null}
+									{selectedNode ? (
+										<div className="rounded-2xl border border-biosphere-500/20 bg-scheme-surface/75 p-6 shadow-xl">
+											<p className="text-xs font-semibold uppercase tracking-wide text-biosphere-200/80">Selected entity</p>
+											<h3 className="mt-2 text-lg font-bold text-scheme-text">{selectedNode.label}</h3>
+											{selectedNode.type ? (
+												<p className="text-xs uppercase tracking-wide text-scheme-muted-text/90">{selectedNode.type}</p>
+											) : null}
+											<div className="mt-3 flex flex-wrap gap-2">
+												{relatedEdges.length ? (
+													relatedEdges.map((edge, index) => {
+														const otherNodeId = edge.source === selectedNode.id ? edge.target : edge.source
+														const target = nodeMap.get(otherNodeId)
+														return (
+															<span
+																key={`${edge.source}-${edge.target}-${index}`}
+																className="rounded-full border border-biosphere-500/30 bg-biosphere-500/10 px-3 py-1 text-xs text-biosphere-200"
+															>
+																{edge.relation ?? 'Related to'} • {target?.label ?? otherNodeId}
+															</span>
+														)
+													})
+												) : (
+													<span className="text-xs text-scheme-muted-text">No immediate connections.</span>
+												)}
+											</div>
+										</div>
 									) : null}
 								</div>
-							</ScrollArea>
-						</div>
-						<div className="space-y-4">
-							{graphModal.data.context ? (
-								<p className="rounded-2xl border border-scheme-border-subtle/60 bg-scheme-surface/70 p-4 text-xs text-scheme-muted-text/90">
-									{graphModal.data.context}
-								</p>
-							) : null}
-							{(() => {
-								const selectedNode = graphModal.data.nodes.find((node) => node.id === graphSelection) ?? graphModal.data.nodes[0]
-								if (!selectedNode) {
-									return <p className="text-sm text-scheme-muted-text">No nodes available.</p>
-								}
-								const relatedEdges = graphModal.data.edges.filter(
-									(edge) => edge.source === selectedNode.id || edge.target === selectedNode.id,
-								)
-								return (
-									<div className="rounded-2xl border border-scheme-border-subtle/60 bg-scheme-surface/70 p-5">
-										<p className="text-xs font-semibold uppercase tracking-wide text-scheme-muted-text/80">
-											Connections for {selectedNode.label}
-										</p>
-										{relatedEdges.length ? (
-											<ul className="mt-3 space-y-2 text-sm text-scheme-text/90">
-												{relatedEdges.map((edge, index) => (
-													<li key={`${edge.source}-${edge.target}-${index}`} className="rounded-lg border border-scheme-border-subtle/60 bg-scheme-surface/80 px-3 py-2">
-														<p className="text-xs text-scheme-muted-text/80">{edge.relation}</p>
-														<p className="text-sm font-medium text-scheme-text">
-															{edge.source} → {edge.target}
-														</p>
-													</li>
-												))}
-											</ul>
-										) : (
-											<p className="mt-3 text-sm text-scheme-muted-text">No connections for this node.</p>
-										)}
-									</div>
-								)
-							})()}
-						</div>
-					</div>
+							</div>
+						)
+					})()}
 				</DialogContent>
 			) : null}
 		</Dialog>
