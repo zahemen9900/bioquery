@@ -64,6 +64,8 @@ type ToolMetadata = {
 	artifact: ArtifactReference | null
 	document: DocumentReference | null
 	image: ImageAssetReference | null
+	search: ContextualSearchData | null
+	answer: AnswerWithSourcesData | null
 }
 
 type TimelineSection = {
@@ -108,6 +110,27 @@ type KnowledgeGraphData = {
 	edges: KnowledgeGraphEdge[]
 	context: string | null
 	tags: string[]
+}
+
+type ContextualSearchResultEntry = {
+	pmcid: string | null
+	title: string | null
+	url: string | null
+	chunkIndex: number | null
+	text: string
+	similarityScore: number | null
+}
+
+type ContextualSearchData = {
+	query: string
+	topK: number
+	results: ContextualSearchResultEntry[]
+}
+
+type AnswerWithSourcesData = {
+	query: string
+	answer: string
+	sources: ContextualSearchResultEntry[]
 }
 
 type TimelineModalState = {
@@ -237,6 +260,64 @@ const parseGraphEdgesData = (value: unknown): KnowledgeGraphEdge[] => {
 		edges.push({ source, target, relation })
 	}
 	return edges
+}
+
+const truncateSnippet = (value: string, limit = 480): string => {
+	if (value.length <= limit) return value
+	return `${value.slice(0, limit)}…`
+}
+
+const formatSimilarityScore = (value: number | null): string | null => {
+	if (typeof value !== 'number' || Number.isNaN(value)) return null
+	return value.toFixed(3)
+}
+
+const parseContextualResultEntries = (value: unknown): ContextualSearchResultEntry[] => {
+	if (!Array.isArray(value)) return []
+	const results: ContextualSearchResultEntry[] = []
+	for (const entry of value) {
+		if (!entry || typeof entry !== 'object') continue
+		const record = entry as Record<string, unknown>
+		const text = ensureString(record.text)
+		if (!text) continue
+		const chunkIndexValue = coerceNumber(record.chunk_index)
+		results.push({
+			pmcid: ensureString(record.pmcid),
+			title: ensureString(record.title),
+			url: ensureString(record.url),
+			chunkIndex: chunkIndexValue === null ? null : Math.trunc(chunkIndexValue),
+			text: truncateSnippet(text),
+			similarityScore: coerceNumber(record.similarity_score),
+		})
+	}
+	return results
+}
+
+const parseContextualSearchPayload = (record: Record<string, unknown> | null): ContextualSearchData | null => {
+	if (!record) return null
+	const query = ensureString(record.query)
+	if (!query) return null
+	const topKRaw = coerceNumber(record.top_k)
+	const results = parseContextualResultEntries(record.results)
+	const topK = topKRaw === null ? Math.max(1, results.length || 5) : Math.min(20, Math.max(1, Math.round(topKRaw)))
+	return {
+		query,
+		topK,
+		results,
+	}
+}
+
+const parseAnswerWithSourcesPayload = (record: Record<string, unknown> | null): AnswerWithSourcesData | null => {
+	if (!record) return null
+	const answer = ensureString(record.text) ?? ensureString(record.answer)
+	if (!answer) return null
+	const query = ensureString(record.query) ?? 'User question'
+	const sources = parseContextualResultEntries(record.sources)
+	return {
+		query,
+		answer,
+		sources,
+	}
 }
 
 const toTimelineData = (artifact: ArtifactReference): TimelineData | null => {
@@ -466,6 +547,8 @@ const extractToolMetadata = (message: ChatMessage): { order: number[]; map: Map<
 			artifact: null,
 			document: null,
 			image: null,
+			search: null,
+			answer: null,
 		})
 		order.push(id)
 	}
@@ -478,7 +561,15 @@ const extractToolMetadata = (message: ChatMessage): { order: number[]; map: Map<
 		const toolId = coerceNumber(rawToolId)
 		if (!toolId) continue
 
-		const slot = map.get(toolId) ?? { call: null, artifact: null, document: null, image: null }
+		const slot =
+			map.get(toolId) ?? {
+				call: null,
+				artifact: null,
+				document: null,
+				image: null,
+				search: null,
+				answer: null,
+			}
 
 		if (type === 'artifact_reference') {
 			const payload = (entry as Record<string, unknown>).artifact
@@ -536,6 +627,18 @@ const extractToolMetadata = (message: ChatMessage): { order: number[]; map: Map<
 						sourceUrl: ensureString(imageRecord.source_url),
 					}
 				}
+			}
+		} else if (type === 'contextual_search') {
+			const payload = ensureRecord((entry as Record<string, unknown>).search)
+			const parsedSearch = parseContextualSearchPayload(payload)
+			if (parsedSearch) {
+				slot.search = parsedSearch
+			}
+		} else if (type === 'answer_with_sources') {
+			const payload = ensureRecord((entry as Record<string, unknown>).answer)
+			const parsedAnswer = parseAnswerWithSourcesPayload(payload)
+			if (parsedAnswer) {
+				slot.answer = parsedAnswer
 			}
 		}
 
@@ -1297,17 +1400,19 @@ export function ToolCallResults({ message, toolId }: ToolCallResultsProps) {
 		const entry = metadata.map.get(id)
 		if (!entry) return null
 
-		const { call, artifact, document, image } = entry
+		const { call, artifact, document, image, search, answer } = entry
 		const resolvedArtifact = artifact ? artifactCache[artifact.id] ?? artifact : null
 		const resolvedDocument = document ? documentCache[document.id] ?? document : null
 
-		if (!resolvedArtifact && !resolvedDocument && !image && (!call || call.status !== 'error')) {
+		if (!resolvedArtifact && !resolvedDocument && !image && !search && !answer && (!call || call.status !== 'error')) {
 			return null
 		}
 
 		return (
 			<div key={`tool-block-${id}`} className="my-3 space-y-3">
 				{call && call.status === 'error' ? renderError(call) : null}
+				{answer ? renderAnswerWithSources(answer) : null}
+				{search ? renderContextualSearch(search) : null}
 				{resolvedArtifact ? renderArtifact(resolvedArtifact, call) : null}
 				{resolvedDocument ? renderDocument(resolvedDocument, call) : null}
 				{image ? renderImageAsset(image) : null}
@@ -1720,5 +1825,161 @@ export function ToolCallResults({ message, toolId }: ToolCallResultsProps) {
 		</>
 	)
 }
+
+	const renderContextualSearch = (search: ContextualSearchData) => {
+		return (
+			<div className="mt-3 rounded-2xl border border-scheme-border-subtle bg-scheme-surface/90 p-4 shadow-sm">
+				<div className="flex items-start gap-3">
+					<span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-scheme-muted/20 text-scheme-muted-text">
+						<HiOutlineGlobeAlt className="h-5 w-5" />
+					</span>
+					<div className="flex-1 space-y-3">
+						<div>
+							<p className="text-sm font-semibold text-scheme-text">Contextual search</p>
+							<p className="text-xs text-scheme-muted-text/80">
+								Top {search.topK} · {search.results.length} match{search.results.length === 1 ? '' : 'es'}
+							</p>
+						</div>
+						<div className="rounded-2xl border border-scheme-border-subtle/60 bg-scheme-muted/10 px-4 py-3 text-sm italic text-scheme-text/90">
+							“{search.query}”
+						</div>
+						{search.results.length ? (
+							<div className="space-y-3">
+								{search.results.map((result, index) => {
+									const similarityLabel = formatSimilarityScore(result.similarityScore)
+									return (
+										<div
+											key={`contextual-result-${index}-${result.url ?? result.pmcid ?? 'local'}`}
+											className="rounded-2xl border border-scheme-border-subtle/70 bg-scheme-surface/95 p-4"
+										>
+											<div className="flex flex-wrap items-center gap-2">
+												<span className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-biosphere-500/20 text-xs font-semibold text-biosphere-200">
+													{index + 1}
+												</span>
+												<p className="text-sm font-semibold text-scheme-text">
+													{result.title ?? 'Untitled excerpt'}
+												</p>
+												{similarityLabel ? (
+													<Badge variant="outline" className="rounded-full border-biosphere-500/30 text-[0.65rem] text-biosphere-200">
+														Sim {similarityLabel}
+													</Badge>
+												) : null}
+											</div>
+											<p className="mt-2 text-sm leading-relaxed text-scheme-text/85">{result.text}</p>
+											<div className="mt-3 flex flex-wrap items-center gap-2">
+												{result.url ? (
+													<Button
+														type="button"
+														size="sm"
+														variant="ghost"
+														className="rounded-full text-xs text-biosphere-300 hover:bg-biosphere-500/10"
+														onClick={() => openExternalLink(result.url)}
+													>
+														Open source
+													</Button>
+												) : null}
+												{result.pmcid ? (
+													<Badge variant="secondary" className="rounded-full bg-scheme-muted/30 text-[0.65rem] text-scheme-muted-text">
+														PMC{result.pmcid}
+													</Badge>
+												) : null}
+												{result.chunkIndex !== null ? (
+													<Badge variant="outline" className="rounded-full border-scheme-border-subtle/70 text-[0.65rem] text-scheme-muted-text">
+														Chunk {result.chunkIndex}
+													</Badge>
+												) : null}
+											</div>
+										</div>
+									)
+								})}
+							</div>
+						) : (
+							<p className="text-sm text-scheme-muted-text/90">No matches were returned.</p>
+						)}
+					</div>
+				</div>
+			</div>
+		)
+	}
+
+	const renderAnswerWithSources = (answer: AnswerWithSourcesData) => {
+		return (
+			<div className="mt-3 rounded-2xl border border-biosphere-500/30 bg-biosphere-500/10 p-4 backdrop-blur">
+				<div className="flex items-start gap-3">
+					<span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-biosphere-500/20 text-biosphere-200">
+						<HiOutlineSparkles className="h-5 w-5" />
+					</span>
+					<div className="flex-1 space-y-3">
+						<div>
+							<p className="text-sm font-semibold text-scheme-text">Grounded answer</p>
+							<p className="text-xs text-scheme-muted-text/80">Cites contextual search sources inline.</p>
+						</div>
+						<div className="rounded-2xl border border-biosphere-500/30 bg-scheme-surface/90 px-4 py-3 text-sm text-scheme-text/90">
+							<strong className="font-semibold text-scheme-text">Question:</strong> {answer.query}
+						</div>
+						<div className="rounded-2xl border border-biosphere-500/20 bg-scheme-surface/95 px-4 py-3 text-sm leading-relaxed text-scheme-text/95">
+							<ReactMarkdown remarkPlugins={[remarkGfm]} className="prose prose-invert max-w-none text-sm leading-relaxed text-scheme-text [&>*]:mb-3 [&>*:last-child]:mb-0">
+								{answer.answer}
+							</ReactMarkdown>
+						</div>
+						{answer.sources.length ? (
+							<div className="space-y-3">
+								<p className="text-xs font-semibold uppercase tracking-wide text-scheme-muted-text/70">Sources</p>
+								<div className="space-y-2">
+									{answer.sources.map((source, index) => {
+										const similarityLabel = formatSimilarityScore(source.similarityScore)
+										return (
+											<div
+												key={`answer-source-${index}-${source.url ?? source.pmcid ?? 'local'}`}
+												className="rounded-2xl border border-biosphere-500/20 bg-scheme-surface/95 p-4"
+											>
+												<div className="flex flex-wrap items-center gap-2">
+													<span className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-biosphere-500/25 text-xs font-semibold text-biosphere-200">
+														{index + 1}
+													</span>
+													<p className="text-sm font-semibold text-scheme-text">
+														{source.title ?? 'Untitled source'}
+													</p>
+													{similarityLabel ? (
+														<Badge variant="outline" className="rounded-full border-biosphere-500/40 text-[0.65rem] text-biosphere-200">
+															Sim {similarityLabel}
+														</Badge>
+													) : null}
+												</div>
+												<p className="mt-2 text-sm leading-relaxed text-scheme-text/85">{source.text}</p>
+												<div className="mt-3 flex flex-wrap items-center gap-2">
+													{source.url ? (
+														<Button
+															type="button"
+															size="sm"
+															variant="ghost"
+															className="rounded-full text-xs text-biosphere-300 hover:bg-biosphere-500/10"
+															onClick={() => openExternalLink(source.url)}
+														>
+															View source
+														</Button>
+													) : null}
+													{source.pmcid ? (
+														<Badge variant="secondary" className="rounded-full bg-scheme-muted/30 text-[0.65rem] text-scheme-muted-text">
+															PMC{source.pmcid}
+														</Badge>
+													) : null}
+													{source.chunkIndex !== null ? (
+														<Badge variant="outline" className="rounded-full border-scheme-border-subtle/70 text-[0.65rem] text-scheme-muted-text">
+															Chunk {source.chunkIndex}
+														</Badge>
+													) : null}
+												</div>
+											</div>
+										)
+									})}
+								</div>
+							</div>
+						) : null}
+					</div>
+				</div>
+			</div>
+		)
+	}
 
 export default ToolCallResults

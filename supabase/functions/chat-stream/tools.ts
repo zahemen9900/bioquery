@@ -226,6 +226,66 @@ export const createKnowledgeGraphTool: GenericFunctionDeclaration = {
 	},
 }
 
+export const contextualSearchTool: GenericFunctionDeclaration = {
+	name: "contextual_search",
+	description:
+		"Perform semantic search across NASA bioscience publications that have been pre-embedded into the BioQuery vector store.",
+	parameters: {
+		type: "object",
+		properties: {
+			query: {
+				type: "string",
+				description: "Natural language query describing the research topic of interest.",
+			},
+			top_k: {
+				type: "integer",
+				description: "Maximum number of matches to return (1-20).",
+				minimum: 1,
+				maximum: 20,
+			},
+		},
+		required: ["query"],
+	},
+}
+
+export const answerWithSourcesTool: GenericFunctionDeclaration = {
+	name: "answer_with_sources",
+	description:
+		"Synthesize a grounded answer using contextual_search results. Always cite sources in the response.",
+	parameters: {
+		type: "object",
+		properties: {
+			query: {
+				type: "string",
+				description: "User question that should be answered using the supplied context chunks.",
+			},
+			contextual_results: {
+				type: "array",
+				description: "Optional contextual chunks previously returned by contextual_search.",
+				items: {
+					type: "object",
+					properties: {
+						title: { type: "string" },
+						text: { type: "string" },
+						url: { type: "string" },
+						similarity_score: { type: "number" },
+						pmcid: { type: "string" },
+						chunk_index: { type: "integer" },
+					},
+					required: ["text"],
+				},
+			},
+			top_k: {
+				type: "integer",
+				description: "If contextual_results are not provided, retrieve this many new matches (default 5).",
+				minimum: 1,
+				maximum: 20,
+			},
+		},
+		required: ["query"],
+	},
+}
+
 export const timelineBuilderTool: GenericFunctionDeclaration = {
 	name: "timeline_builder",
 	description:
@@ -275,6 +335,8 @@ export const artifactCreationTools: GenericFunctionDeclaration[] = [
 	createVisualJsonTool,
 	createKnowledgeGraphTool,
 	timelineBuilderTool,
+	contextualSearchTool,
+	answerWithSourcesTool,
 ]
 
 export function buildArtifactToolboxGuidance(tools: GenericFunctionDeclaration[]): string {
@@ -308,6 +370,18 @@ export function buildArtifactToolboxGuidance(tools: GenericFunctionDeclaration[]
 	if (names.has("create_knowledge_graph_json")) {
 		lines.push(
 			"create_knowledge_graph_json: Capture entities and relationships extracted from research so the UI can render an interactive graph.",
+		)
+	}
+
+	if (names.has("contextual_search")) {
+		lines.push(
+			"contextual_search: Retrieve the most relevant NASA bioscience passages to ground your reasoning before drafting an answer.",
+		)
+	}
+
+	if (names.has("answer_with_sources")) {
+		lines.push(
+			"answer_with_sources: Compose a concise response citing the numbered search results (use [1], [2], etc. in the text).",
 		)
 	}
 
