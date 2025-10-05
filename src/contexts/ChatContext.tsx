@@ -10,6 +10,7 @@ import {
   type ChatSummary,
   type GroundingSource,
   type GroundingSupportSnippet,
+  type ToolMode,
 } from './chat-context-types'
 import { generateChatTitle, streamChatResponse } from '@/services/chat-service'
 
@@ -96,10 +97,59 @@ const hydrateMessage = (entry: ChatMessage, overrides?: Partial<ChatMessage>): C
   pending: overrides?.pending ?? entry.pending ?? false,
 })
 
+type OptimisticToolCall = {
+  id: number
+  name: string
+  status: 'pending' | 'success' | 'error'
+  args: Record<string, unknown> | null
+  result: Record<string, unknown> | null
+  error: string | null
+}
+
+const serializeToolCalls = (calls: OptimisticToolCall[]): Record<string, unknown>[] =>
+  calls.map((call) => ({
+    id: call.id,
+    name: call.name,
+    status: call.status,
+    args: call.args,
+    result: call.result,
+    error: call.error,
+  }))
+
+const normalizeToolId = (value: unknown): number | null => {
+  if (typeof value === 'number' && Number.isFinite(value)) return value
+  const parsed = Number(value)
+  if (Number.isFinite(parsed)) return parsed
+  return null
+}
+
+const upsertToolContentEntry = (
+  current: Record<string, unknown>[],
+  entry: Record<string, unknown>,
+): Record<string, unknown>[] => {
+  if (entry?.type === 'grounding_sources') {
+    const others = current.filter((item) => item?.type !== 'grounding_sources')
+    return [...others, entry]
+  }
+
+  const toolId = normalizeToolId(entry?.tool_id)
+  const entryType = typeof entry?.type === 'string' ? entry.type : null
+  if (!toolId || !entryType) return current
+
+  const others = current.filter((item) => {
+    if (item?.type === 'grounding_sources') return true
+    const existingToolId = normalizeToolId(item?.tool_id)
+    return !(existingToolId === toolId && item?.type === entryType)
+  })
+
+  return [...others, { ...entry, tool_id: toolId }]
+}
+
 export function ChatProvider({ children }: ChatProviderProps) {
   const { user } = useAuth()
   const [selectedChatId, setSelectedChatId] = useState<string | null>(null)
   const [activeStream, setActiveStream] = useState<ActiveStreamState | null>(null)
+  const [toolMode, setToolMode] = useState<ToolMode>('research-tools')
   const queryClient = useQueryClient()
 
   const chatsKey = useMemo(() => ['chats', user?.id], [user?.id])
@@ -153,6 +203,7 @@ export function ChatProvider({ children }: ChatProviderProps) {
   const reset = useCallback(() => {
     setSelectedChatId(null)
     setActiveStream(null)
+    setToolMode('research-tools')
     queryClient.removeQueries({ queryKey: chatsKey })
   }, [chatsKey, queryClient])
 
@@ -268,10 +319,27 @@ export function ChatProvider({ children }: ChatProviderProps) {
           chatId: isTemporary ? undefined : activeChatId,
           message: trimmed,
           chatTitle: isTemporary ? 'Untitled chat' : undefined,
+          toolMode,
         })
 
         let finalChat: ChatSummary | null = null
-  let finalMessages: ChatMessage[] = []
+        let finalMessages: ChatMessage[] = []
+        let toolCallState: OptimisticToolCall[] = []
+        let toolContentState: Record<string, unknown>[] = []
+
+        const syncAssistant = () => {
+          assistantOptimistic = {
+            ...assistantOptimistic,
+            content: assistantContent,
+            thoughts: assistantThoughts,
+            tool_calls: serializeToolCalls(toolCallState),
+            tool_contents: [...toolContentState],
+          }
+
+          queryClient.setQueryData<ChatMessage[]>(messagesCacheKey, (old = []) =>
+            old.map((message) => (message.id === assistantPlaceholderId ? assistantOptimistic : message)),
+          )
+        }
 
         for await (const event of stream) {
           if (event.type === 'thought') {
@@ -285,9 +353,7 @@ export function ChatProvider({ children }: ChatProviderProps) {
                 ? { ...current, stage: 'thinking', thoughts: assistantThoughts }
                 : current,
             )
-            queryClient.setQueryData<ChatMessage[]>(messagesCacheKey, (old = []) =>
-              old.map((message) => (message.id === assistantPlaceholderId ? assistantOptimistic : message)),
-            )
+            syncAssistant()
           } else if (event.type === 'response') {
             assistantContent += event.delta
             assistantOptimistic = {
@@ -300,9 +366,58 @@ export function ChatProvider({ children }: ChatProviderProps) {
                 ? { ...current, stage: 'responding', thoughts: assistantThoughts }
                 : current,
             )
-            queryClient.setQueryData<ChatMessage[]>(messagesCacheKey, (old = []) =>
-              old.map((message) => (message.id === assistantPlaceholderId ? assistantOptimistic : message)),
-            )
+            syncAssistant()
+          } else if (event.type === 'tool_start') {
+            const existingIndex = toolCallState.findIndex((call) => call.id === event.tool.id)
+            const baseEntry: OptimisticToolCall = {
+              id: event.tool.id,
+              name: event.tool.name,
+              status: 'pending',
+              args: null,
+              result: null,
+              error: null,
+            }
+
+            if (existingIndex >= 0) {
+              toolCallState = toolCallState.map((call, index) => (index === existingIndex ? baseEntry : call))
+            } else {
+              toolCallState = [...toolCallState, baseEntry]
+            }
+
+            syncAssistant()
+          } else if (event.type === 'tool_result') {
+            const hasExisting = toolCallState.some((call) => call.id === event.tool.id)
+            if (!hasExisting) {
+              toolCallState = [
+                ...toolCallState,
+                {
+                  id: event.tool.id,
+                  name: event.tool.name,
+                  status: event.status,
+                  args: null,
+                  result: event.summary ? { summary: event.summary } : null,
+                  error: event.status === 'error' ? event.error ?? 'Tool execution failed' : null,
+                },
+              ]
+            } else {
+              toolCallState = toolCallState.map((call) =>
+                call.id === event.tool.id
+                  ? {
+                      ...call,
+                      name: event.tool.name,
+                      status: event.status,
+                      result: event.summary ? { summary: event.summary } : call.result,
+                      error: event.status === 'error' ? event.error ?? 'Tool execution failed' : null,
+                    }
+                  : call,
+              )
+            }
+
+            if (event.content && typeof event.content === 'object' && !Array.isArray(event.content)) {
+              toolContentState = upsertToolContentEntry(toolContentState, event.content as Record<string, unknown>)
+            }
+
+            syncAssistant()
           } else if (event.type === 'complete') {
             finalChat = mapChat(event.chat)
             finalMessages = sortMessages(
@@ -383,7 +498,7 @@ export function ChatProvider({ children }: ChatProviderProps) {
         return null
       }
     },
-    [chatsKey, createChat, messagesKey, queryClient, refreshChats, refreshMessages, selectedChatId, user],
+    [chatsKey, createChat, messagesKey, queryClient, refreshChats, refreshMessages, selectedChatId, toolMode, user],
   )
 
   useEffect(() => {
@@ -538,6 +653,8 @@ export function ChatProvider({ children }: ChatProviderProps) {
       messagesLoading,
       messages,
       activeStream,
+      toolMode,
+      setToolMode,
       selectChat,
       createChat,
       refreshChats,
@@ -568,6 +685,8 @@ export function ChatProvider({ children }: ChatProviderProps) {
       starredChats,
       toggleStar,
       updateMessageFeedback,
+      toolMode,
+      setToolMode,
     ],
   )
 

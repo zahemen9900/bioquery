@@ -52,6 +52,8 @@ type ActiveStreamState = {
   thoughts: string
 }
 
+type ToolMode = 'research-tools' | 'web-search'
+
 type ChatContextValue = {
   starredChats: ChatSummary[]
   recentChats: ChatSummary[]
@@ -61,6 +63,8 @@ type ChatContextValue = {
   messagesLoading: boolean
   messages: ChatMessage[]
   activeStream: ActiveStreamState | null
+  toolMode: ToolMode
+  setToolMode: (mode: ToolMode) => void
   selectChat: (chatId: string | null) => void
   createChat: (initialName?: string) => Promise<ChatSummary | null>
   refreshChats: () => Promise<void>
@@ -81,4 +85,12 @@ export function useChat(): ChatContextValue {
   return context
 }
 
-export type { ChatSummary, ChatMessage, ChatContextValue, ActiveStreamState, GroundingSource, GroundingSupportSnippet }
+export type {
+  ChatSummary,
+  ChatMessage,
+  ChatContextValue,
+  ActiveStreamState,
+  GroundingSource,
+  GroundingSupportSnippet,
+  ToolMode,
+}
