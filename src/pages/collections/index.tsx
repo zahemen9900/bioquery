@@ -5,7 +5,7 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 
 import { HiMiniBars3CenterLeft } from 'react-icons/hi2'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -44,18 +44,12 @@ type DocumentRow = {
 	chat_id: string | null
 }
 
-type TabOption = {
-	value: TabValue
-	label: string
-	description: string
-}
-
-const TABS: TabOption[] = [
-	{ value: 'all', label: 'All', description: 'Everything you have saved so far.' },
-	{ value: 'document', label: 'Documents', description: 'Generated references and summaries.' },
-	{ value: 'visualization', label: 'Visuals', description: 'Charts, timelines, and knowledge graphs.' },
-	{ value: 'summary', label: 'Notes', description: 'Concise findings and narratives.' },
-	{ value: 'dataset', label: 'Datasets', description: 'Structured outputs ready for analysis.' },
+const TABS: Array<{ value: TabValue; label: string }> = [
+	{ value: 'all', label: 'All' },
+	{ value: 'document', label: 'Documents' },
+	{ value: 'visualization', label: 'Visuals' },
+	{ value: 'summary', label: 'Notes' },
+	{ value: 'dataset', label: 'Datasets' },
 ]
 
 type ArtifactDetail = {
@@ -644,7 +638,6 @@ export default function CollectionsPage() {
 		})
 	}, [activeTab, collections, searchTerm])
 
-			const currentTab = TABS.find((tab) => tab.value === activeTab) ?? TABS[0]
 
 		const getArtifactDetail = async (artifactId: string): Promise<ArtifactDetail | null> => {
 			if (!artifactId) return null
@@ -1259,9 +1252,9 @@ export default function CollectionsPage() {
 
 	return (
 		<div className="relative flex h-full flex-1 flex-col overflow-hidden bg-scheme-background">
-			<div className="pointer-events-none absolute inset-x-0 top-0 h-64 bg-gradient-to-b from-biosphere-500/10 via-scheme-background to-transparent" aria-hidden />
+			<div className="pointer-events-none absolute inset-x-0 top-0 h-48 bg-gradient-to-b from-biosphere-500/10 via-scheme-background to-transparent" aria-hidden />
 
-			<section className="relative border-b border-scheme-border/60 px-6 pb-8 pt-14 md:pt-8">
+			<section className="relative border-b border-scheme-border/60 px-6 pb-6 pt-10 md:pt-6">
 				<button
 					type="button"
 					onClick={openMobileSidebar}
@@ -1270,12 +1263,12 @@ export default function CollectionsPage() {
 				>
 					<HiMiniBars3CenterLeft className="h-5 w-5" />
 				</button>
-				<div className="mx-auto flex w-full max-w-5xl flex-col gap-5">
+				<div className="mx-auto flex w-full max-w-5xl flex-col gap-4">
 					<div className="flex flex-wrap items-center justify-between gap-4">
 						<div>
 							<span className="text-xs font-semibold uppercase tracking-[0.2em] text-biosphere-400">Collections</span>
-							<h1 className="mt-3 text-3xl font-semibold text-scheme-text md:text-4xl">Your BioQuery library</h1>
-							<p className="mt-2 max-w-2xl text-sm text-scheme-muted-text md:text-base">
+							<h1 className="mt-2 text-3xl font-semibold text-scheme-text md:text-4xl">Your BioQuery library</h1>
+							<p className="mt-1 max-w-2xl text-sm text-scheme-muted-text md:text-base">
 								Track every document and visual your chats produce and return whenever you need a refresher.
 							</p>
 						</div>
@@ -1283,7 +1276,7 @@ export default function CollectionsPage() {
 							value={searchTerm}
 							onChange={(event) => setSearchTerm(event.target.value)}
 							placeholder="Search by title, notes, or tags"
-							className="h-10 w-full max-w-sm rounded-full bg-scheme-surface/80 text-sm text-scheme-text"
+							className="h-9 w-full max-w-sm rounded-full bg-scheme-surface/80 text-sm text-scheme-text"
 						/>
 					</div>
 
@@ -1299,10 +1292,6 @@ export default function CollectionsPage() {
 								</TabsTrigger>
 							))}
 						</TabsList>
-
-						<TabsContent value={activeTab} className="mt-6 text-sm text-scheme-muted-text">
-							{currentTab.description}
-						</TabsContent>
 					</Tabs>
 				</div>
 			</section>

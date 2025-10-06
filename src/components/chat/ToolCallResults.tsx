@@ -1,4 +1,5 @@
 import { useId, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import {
@@ -712,6 +713,7 @@ const formatExpiryLabel = (expiresAt: string | null): string => {
 }
 
 export function ToolCallResults({ message, toolId }: ToolCallResultsProps) {
+	const navigate = useNavigate()
 	const { showToast } = useToast()
 	const [savingMap, setSavingMap] = useState<Record<string, boolean>>({})
 	const [savedMap, setSavedMap] = useState<Record<string, boolean>>({})
@@ -1051,7 +1053,12 @@ export function ToolCallResults({ message, toolId }: ToolCallResultsProps) {
 			}
 
 			setSavedMap((prev) => ({ ...prev, [key]: true }))
-			showToast('Saved to collections')
+			showToast('Saved to collections', {
+				action: {
+					label: 'View',
+					onClick: () => navigate('/collections'),
+				},
+			})
 		} catch (error) {
 			console.error('Failed to save artifact', error)
 			showToast('We could not save this artifact. Try again shortly.')
@@ -1113,7 +1120,12 @@ export function ToolCallResults({ message, toolId }: ToolCallResultsProps) {
 			}
 
 			setSavedMap((prev) => ({ ...prev, [key]: true }))
-			showToast('Saved to collections')
+			showToast('Saved to collections', {
+				action: {
+					label: 'View',
+					onClick: () => navigate('/collections'),
+				},
+			})
 		} catch (error) {
 			console.error('Failed to save document artifact', error)
 			showToast('We could not save this document. Try again shortly.')

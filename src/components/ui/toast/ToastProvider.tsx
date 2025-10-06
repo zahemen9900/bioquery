@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
-import { ToastContext, type ToastContextValue } from './context'
+import { ToastContext, type ToastContextValue, type ToastAction } from './context'
 
 type ToastEntry = {
 	id: number
 	message: string
 	duration: number
+	action?: ToastAction
 }
 
 const MIN_DURATION = 1500
@@ -33,8 +34,9 @@ export function ToastProvider({ children }: ToastProviderProps) {
 
 		const id = Date.now()
 		const duration = Math.max(MIN_DURATION, options?.duration ?? DEFAULT_DURATION)
+		const action = options?.action
 
-		setToasts((prev) => [...prev, { id, message, duration }])
+		setToasts((prev) => [...prev, { id, message, duration, action }])
 
 		const timeoutId = window.setTimeout(() => removeToast(id), duration)
 		timers.current[id] = timeoutId
@@ -62,7 +64,21 @@ export function ToastProvider({ children }: ToastProviderProps) {
 								transition={{ duration: 0.22 }}
 								className="pointer-events-auto rounded-xl border border-scheme-border bg-scheme-surface px-4 py-3 text-sm text-scheme-text shadow-2xl shadow-black/15"
 							>
-								{toast.message}
+								<div className="flex items-center gap-3">
+									<span className="flex-1 text-sm text-scheme-text">{toast.message}</span>
+									{toast.action ? (
+										<button
+											type="button"
+											onClick={() => {
+												removeToast(toast.id)
+												toast.action?.onClick()
+											}}
+											className="rounded-md border border-biosphere-500/40 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-biosphere-300 transition hover:border-biosphere-400 hover:text-biosphere-200"
+										>
+											{toast.action.label}
+										</button>
+									) : null}
+								</div>
 							</motion.div>
 						))}
 					</AnimatePresence>

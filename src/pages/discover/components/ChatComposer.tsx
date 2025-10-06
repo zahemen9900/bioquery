@@ -191,14 +191,40 @@ export function ChatComposer({
             type="button"
             size="icon"
             className={cn(
-              'shrink-0 rounded-xl transition-all',
+              'relative shrink-0 rounded-xl transition-all',
               isHeroMode ? 'h-12 w-12' : 'h-10 w-10',
-              !value.trim() && 'opacity-50',
+              !value.trim() && !disabled && 'opacity-50',
             )}
             onClick={onSubmit}
+            aria-label={disabled ? 'Sending' : 'Send message'}
             disabled={disabled || !value.trim()}
           >
-            <HiOutlinePaperAirplane className="h-5 w-5" />
+            <AnimatePresence mode="wait" initial={false}>
+              {disabled ? (
+                <motion.span
+                  key="sending"
+                  initial={{ opacity: 0, rotate: -90 }}
+                  animate={{ opacity: 1, rotate: 0 }}
+                  exit={{ opacity: 0, rotate: 90 }}
+                  transition={{ duration: 0.18 }}
+                  className="flex items-center justify-center"
+                >
+                  <span className="h-5 w-5 animate-spin rounded-full border-2 border-biosphere-300 border-t-transparent" />
+                  <span className="sr-only">Sending</span>
+                </motion.span>
+              ) : (
+                <motion.span
+                  key="idle"
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -6 }}
+                  transition={{ duration: 0.18 }}
+                  className="flex items-center justify-center"
+                >
+                  <HiOutlinePaperAirplane className="h-5 w-5" />
+                </motion.span>
+              )}
+            </AnimatePresence>
           </Button>
         </div>
 
