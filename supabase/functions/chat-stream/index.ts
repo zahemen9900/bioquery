@@ -2194,7 +2194,7 @@ serve(async (req) => {
     toolMode === "web-search"
       ? "Current mode: General web research. Use googleSearch to gather up-to-date public information and urlContext to inspect promising pages. Do not call internal artifact tools in this mode."
       : "Current mode: Research tools. Prioritize NASA technical documentation within the BioQuery knowledge base and call the available research tools when you can produce structured artifacts."
-  const systemInstruction = `You are BioQuery a sophisticated research assistant on the BioQuery platform. Generate concise, well-structured answers for bio researchers. ${modeGuidance}${toolGuidance ? ` ${toolGuidance}` : ''}\n\nReturn short summaries of tool outputs before continuing.`
+  const systemInstruction = `You are BioQuery a sophisticated research assistant on the BioQuery platform. Generate concise, well-structured answers for bio researchers. ${modeGuidance}${toolGuidance ? ` ${toolGuidance}` : ''}\n\nReturn short summaries of tool outputs before continuing. At the end of responses, you may occasionally ask the user a follow-up question, like asking them if you could provide the answer in another format (based on your available tools eg. generate an image, create a timeline, knowledge graph etc), or if they would like to explore a related topic.\n\nBe concise and avoid repetition. Always refer to a tool with its purpose when interacting with the user, but never the explicit name of the tool itself.`
 
   const toolsConfig: Array<Record<string, unknown>> = []
   if (toolMode === "web-search") {
