@@ -10,6 +10,8 @@ import supabase from '@/lib/supabase-client'
 import { useAuth } from '@/contexts/auth-context-types'
 import { useAppShell } from '@/contexts/app-shell-context'
 import { cn } from '@/lib/utils'
+import { Dialog, DialogContent } from '@/components/ui/dialog'
+import { useUserPreferences } from '@/hooks/use-user-preferences'
 
 import CollectionCard, { type CollectionArtifact, type CollectionKind } from './components/CollectionCard'
 
@@ -96,18 +98,58 @@ const snippetFromContent = (content: unknown): string | null => {
 
 const resolveDate = (value: string | null | undefined): string => value ?? new Date().toISOString()
 
+const COLLECTIONS_TOUR_SLIDES: Array<{
+	id: string
+	title: string
+	description: string
+	highlight: string
+	accent: string
+}> = [
+	{
+		id: 'documents',
+		title: 'Keep every generated document within reach',
+		description:
+			'Your AI-crafted briefs, reports, and summaries automatically land here so you can pick up right where you left off.',
+		highlight: 'Use tags to group mission threads or experiment phases.',
+		accent: 'from-biosphere-500/80 via-cosmic-500/60 to-space-900/80',
+	},
+	{
+		id: 'visuals',
+		title: 'Organize visuals, timelines, and knowledge graphs',
+		description:
+			'Charts, knowledge graphs, and timelines generated in Discover show up instantly—perfect for sharing with your team.',
+		highlight: 'Filter by type to focus on visuals, datasets, or notes.',
+		accent: 'from-cosmic-500/80 via-biosphere-500/60 to-space-900/80',
+	},
+]
+
 export default function CollectionsPage() {
 	const { user } = useAuth()
 	const { openMobileSidebar } = useAppShell()
 	const navigate = useNavigate()
+	const { prefs, loading: prefsLoading, updatePrefs } = useUserPreferences()
 	const mobileMenuButtonClasses =
 		'inline-flex h-9 w-9 items-center justify-center rounded-lg bg-scheme-surface/80 text-scheme-text shadow-sm ring-1 ring-inset ring-scheme-border/60 transition hover:text-biosphere-500 hover:ring-biosphere-500/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-biosphere-500/60 md:hidden'
 
-	const [activeTab, setActiveTab] = useState<TabValue>('all')
-	const [collections, setCollections] = useState<CollectionArtifact[]>([])
-	const [searchTerm, setSearchTerm] = useState('')
-	const [loading, setLoading] = useState(false)
-	const [error, setError] = useState<string | null>(null)
+		const [activeTab, setActiveTab] = useState<TabValue>('all')
+		const [collections, setCollections] = useState<CollectionArtifact[]>([])
+		const [searchTerm, setSearchTerm] = useState('')
+		const [loading, setLoading] = useState(false)
+		const [error, setError] = useState<string | null>(null)
+		const [collectionsTourOpen, setCollectionsTourOpen] = useState(false)
+		const [collectionsTourStep, setCollectionsTourStep] = useState(0)
+		const [collectionsTourSaving, setCollectionsTourSaving] = useState(false)
+
+		useEffect(() => {
+			if (prefsLoading) return
+			if (!prefs || prefs.has_seen_collections === true) {
+				setCollectionsTourOpen(false)
+				return
+			}
+
+			setCollectionsTourStep(0)
+			setCollectionsTourOpen(true)
+		}, [prefs, prefsLoading])
 
 	useEffect(() => {
 		if (!user) {
@@ -204,7 +246,7 @@ export default function CollectionsPage() {
 		}
 	}, [user])
 
-	const filteredCollections = useMemo(() => {
+		const filteredCollections = useMemo(() => {
 		const base = activeTab === 'all' ? collections : collections.filter((item) => item.kind === activeTab)
 		const query = searchTerm.trim().toLowerCase()
 		if (!query) return base
@@ -216,7 +258,23 @@ export default function CollectionsPage() {
 		})
 	}, [activeTab, collections, searchTerm])
 
-	const currentTab = TABS.find((tab) => tab.value === activeTab) ?? TABS[0]
+		const currentTab = TABS.find((tab) => tab.value === activeTab) ?? TABS[0]
+
+		const handleAdvanceCollectionsTour = async () => {
+			if (collectionsTourStep < COLLECTIONS_TOUR_SLIDES.length - 1) {
+				setCollectionsTourStep((prev) => Math.min(prev + 1, COLLECTIONS_TOUR_SLIDES.length - 1))
+				return
+			}
+
+			setCollectionsTourSaving(true)
+			await updatePrefs({ has_seen_collections: true })
+			setCollectionsTourSaving(false)
+			setCollectionsTourOpen(false)
+		}
+
+		const handleBackCollectionsTour = () => {
+			setCollectionsTourStep((prev) => Math.max(prev - 1, 0))
+		}
 
 	return (
 		<div className="relative flex h-full flex-1 flex-col overflow-hidden bg-scheme-background">
@@ -310,6 +368,78 @@ export default function CollectionsPage() {
 					</div>
 				</div>
 			</div>
+
+						<Dialog open={collectionsTourOpen} onOpenChange={() => {}}>
+							<DialogContent className="max-w-3xl border-none bg-transparent p-0 shadow-none">
+								<div className="overflow-hidden rounded-3xl bg-scheme-surface text-scheme-text shadow-xl">
+									<div className="grid gap-0 md:grid-cols-[1fr_0.9fr]">
+										<div className="flex flex-col justify-between p-8 md:p-10">
+											<div className="space-y-4">
+												<span className="inline-flex items-center rounded-full bg-biosphere-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-biosphere-300">
+													BioQuery collections
+												</span>
+												<h2 className="heading-h3 font-bold">
+													{COLLECTIONS_TOUR_SLIDES[collectionsTourStep].title}
+												</h2>
+												<p className="text-sm leading-relaxed text-scheme-muted-text">
+													{COLLECTIONS_TOUR_SLIDES[collectionsTourStep].description}
+												</p>
+											</div>
+											<div className="mt-6 rounded-2xl border border-scheme-border/60 bg-scheme-muted/10 p-5 text-sm text-scheme-text/90">
+												{COLLECTIONS_TOUR_SLIDES[collectionsTourStep].highlight}
+											</div>
+											<div className="mt-8 flex items-center justify-between">
+												<div className="flex items-center gap-2">
+													{COLLECTIONS_TOUR_SLIDES.map((slide, index) => (
+														<span
+															key={slide.id}
+															className={`h-2.5 rounded-full transition-all ${index === collectionsTourStep ? 'w-8 bg-biosphere-400' : 'w-2.5 bg-scheme-muted/60'}`}
+														/>
+													))}
+												</div>
+												<div className="flex items-center gap-3">
+													<Button variant="ghost" size="sm" onClick={handleBackCollectionsTour} disabled={collectionsTourStep === 0}>
+														Back
+													</Button>
+													<Button
+														variant="default"
+														size="sm"
+														onClick={handleAdvanceCollectionsTour}
+														disabled={collectionsTourSaving}
+													>
+														{collectionsTourStep === COLLECTIONS_TOUR_SLIDES.length - 1 ? 'Start exploring' : 'Next'}
+													</Button>
+												</div>
+											</div>
+										</div>
+										<div
+											className={`flex min-h-[320px] flex-col items-center justify-center gap-6 p-8 text-center text-white md:p-10 bg-gradient-to-br ${COLLECTIONS_TOUR_SLIDES[collectionsTourStep].accent}`}
+										>
+											<div className="rounded-full border border-white/20 bg-white/10 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-white/80 backdrop-blur">
+												Your research vault
+											</div>
+											<p className="max-w-xs text-sm leading-relaxed text-white/85">
+												Collections keeps documents, visuals, datasets, and notes synced with every conversation.
+											</p>
+											<div className="grid w-full gap-3 text-left text-xs text-white/80">
+												<div className="rounded-2xl bg-white/10 p-4 backdrop-blur">
+													<p className="font-semibold">Auto-organized</p>
+													<p className="mt-1 leading-snug text-white/70">Artifacts appear as soon as they are generated.</p>
+												</div>
+												<div className="rounded-2xl bg-white/10 p-4 backdrop-blur">
+													<p className="font-semibold">Filter by type</p>
+													<p className="mt-1 leading-snug text-white/70">Focus on docs, visuals, notes, or datasets in one click.</p>
+												</div>
+												<div className="rounded-2xl bg-white/10 p-4 backdrop-blur">
+													<p className="font-semibold">Ready to share</p>
+													<p className="mt-1 leading-snug text-white/70">Grab summaries and export whenever inspiration strikes.</p>
+												</div>
+											</div>
+										</div>
+									</div>
+								</div>
+							</DialogContent>
+						</Dialog>
 		</div>
 	)
 }

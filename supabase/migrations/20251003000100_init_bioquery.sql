@@ -163,7 +163,7 @@ begin
     values (
         new.id,
         coalesce(new.raw_user_meta_data->>'preferred_theme', 'light'),
-        jsonb_build_object('show_onboarding', true, 'auto_summarize', true),
+        jsonb_build_object('show_onboarding', true, 'auto_summarize', true, 'show_available_tools', true, 'has_seen_collections', false),
         timezone('utc', now())
     )
     on conflict (user_id) do nothing;

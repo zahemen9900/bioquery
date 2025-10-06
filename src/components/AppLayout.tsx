@@ -16,6 +16,7 @@ import { useAuth } from '../contexts/auth-context-types'
 import { useChat, type ChatSummary } from '../contexts/chat-context-types'
 import { AppShellContext, type AppShellContextValue } from '@/contexts/app-shell-context'
 import supabase from '@/lib/supabase-client'
+import { useUserPreferences } from '@/hooks/use-user-preferences'
 import { cn } from '@/lib/utils'
 
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
@@ -34,8 +35,6 @@ const CHAT_SECTIONS: Array<{ label: string; key: 'starredChats' | 'recentChats' 
   { label: 'Starred', key: 'starredChats' },
   { label: 'Recent', key: 'recentChats' },
 ]
-
-type UserPreferences = Record<string, unknown> & { show_onboarding?: boolean }
 
 const ONBOARDING_SLIDES: Array<{
   id: string
@@ -95,6 +94,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
     chatsLoading,
     reset: resetChatState,
   } = useChat()
+  const { prefs, updatePrefs } = useUserPreferences()
 
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
@@ -102,8 +102,6 @@ export default function AppLayout({ children }: AppLayoutProps) {
   const [onboardingOpen, setOnboardingOpen] = useState(false)
   const [onboardingStep, setOnboardingStep] = useState(0)
   const [onboardingSaving, setOnboardingSaving] = useState(false)
-  const [userPrefs, setUserPrefs] = useState<UserPreferences | null>(null)
-  const [userSettingsFetched, setUserSettingsFetched] = useState(false)
 
   const openMobileSidebar = useCallback(() => setSidebarOpen(true), [])
   const closeMobileSidebar = useCallback(() => setSidebarOpen(false), [])
@@ -126,51 +124,18 @@ export default function AppLayout({ children }: AppLayoutProps) {
   useEffect(() => {
     if (!user) {
       setOnboardingOpen(false)
-      setUserPrefs(null)
-      setUserSettingsFetched(false)
-      setOnboardingStep(0)
+  setOnboardingStep(0)
       return
     }
 
-    let active = true
-
-    const evaluateOnboarding = async () => {
-      const { data, error } = await supabase
-        .from('user_settings')
-        .select('user_prefs')
-        .eq('user_id', user.id)
-        .maybeSingle()
-
-      if (!active) return
-
-      if (error) {
-        console.error('Failed to load user preferences', error)
-        setUserSettingsFetched(true)
-        return
-      }
-
-      const rawPrefs =
-        data && data.user_prefs && typeof data.user_prefs === 'object' && !Array.isArray(data.user_prefs)
-          ? (data.user_prefs as UserPreferences)
-          : ({} as UserPreferences)
-
-      const shouldShow =
-        typeof rawPrefs.show_onboarding === 'boolean' ? rawPrefs.show_onboarding : true
-
-      setUserPrefs(rawPrefs)
-      setOnboardingStep(0)
-      setOnboardingOpen(shouldShow)
-      setUserSettingsFetched(true)
+    if (!prefs) {
+      return
     }
 
-    if (!userSettingsFetched) {
-      evaluateOnboarding()
-    }
-
-    return () => {
-      active = false
-    }
-  }, [user, userSettingsFetched])
+    const shouldShow = typeof prefs.show_onboarding === 'boolean' ? prefs.show_onboarding : true
+  setOnboardingStep(0)
+  setOnboardingOpen(shouldShow)
+  }, [prefs, user])
 
   const getInitials = (name: string) =>
     name
@@ -213,27 +178,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
 
     setOnboardingSaving(true)
 
-    const nextPrefs: UserPreferences = {
-      ...(userPrefs ?? {}),
-      show_onboarding: false,
-    }
-
-    const { error } = await supabase.from('user_settings').upsert(
-      {
-        user_id: user.id,
-        user_prefs: nextPrefs,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: 'user_id' },
-    )
-
-    if (error) {
-      console.error('Failed to update onboarding preference', error)
-      setOnboardingSaving(false)
-      return
-    }
-
-    setUserPrefs(nextPrefs)
+    await updatePrefs({ show_onboarding: false })
     setOnboardingOpen(false)
     setOnboardingSaving(false)
   }
