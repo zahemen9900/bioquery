@@ -10,6 +10,7 @@ import {
   HiOutlineSquares2X2,
   HiOutlineSparkles,
   HiOutlineStar,
+  HiOutlineXMark,
 } from 'react-icons/hi2'
 
 import { useAuth } from '../contexts/auth-context-types'
@@ -21,11 +22,12 @@ import { cn } from '@/lib/utils'
 
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Dialog, DialogClose, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
 import { Sheet, SheetContent } from '@/components/ui/sheet'
+import { ThemeToggle } from '@/components/ThemeToggle'
 
 interface AppLayoutProps {
   children: React.ReactNode
@@ -422,7 +424,11 @@ export default function AppLayout({ children }: AppLayoutProps) {
       </div>
 
       <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-2xl" hideClose>
+          <DialogClose className="absolute right-4 top-4 rounded-lg bg-scheme-muted/10 p-1.5 text-scheme-muted-text transition-colors hover:bg-scheme-muted/20 hover:text-scheme-text focus:outline-none focus:ring-2 focus:ring-biosphere-500/40">
+            <HiOutlineXMark className="h-5 w-5" />
+            <span className="sr-only">Close settings</span>
+          </DialogClose>
           <DialogHeader>
             <DialogTitle>Settings</DialogTitle>
             <DialogDescription>Manage your account settings and preferences.</DialogDescription>
@@ -433,9 +439,12 @@ export default function AppLayout({ children }: AppLayoutProps) {
               <p className="text-sm text-scheme-muted-text">Update your account information and preferences.</p>
             </div>
             <Separator />
-            <div className="space-y-2">
-              <h3 className="text-sm font-medium">Appearance</h3>
-              <p className="text-sm text-scheme-muted-text">Customize how BioQuery looks on your device.</p>
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div className="space-y-2">
+                <h3 className="text-sm font-medium">Appearance</h3>
+                <p className="text-sm text-scheme-muted-text">Customize how BioQuery looks on your device.</p>
+              </div>
+              <ThemeToggle />
             </div>
           </div>
         </DialogContent>
@@ -500,7 +509,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
             </div>
             <div
               className={cn(
-                'relative flex min-h-[320px] flex-col items-center justify-center gap-6 p-10 text-center text-white',
+                'relative hidden min-h-[320px] flex-col items-center justify-center gap-6 p-10 text-center text-white md:flex',
                 'bg-gradient-to-br',
                 ONBOARDING_SLIDES[onboardingStep].gradient,
               )}

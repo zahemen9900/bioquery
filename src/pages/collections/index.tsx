@@ -1384,7 +1384,7 @@ export default function CollectionsPage() {
 	                </div>
 	              </div>
 	              <div
-	                className={`flex min-h-[320px] flex-col items-center justify-center gap-6 p-8 text-center text-white md:p-10 bg-gradient-to-br ${COLLECTIONS_TOUR_SLIDES[collectionsTourStep].accent}`}
+	                className={`hidden min-h-[320px] flex-col items-center justify-center gap-6 p-8 text-center text-white md:flex md:p-10 bg-gradient-to-br ${COLLECTIONS_TOUR_SLIDES[collectionsTourStep].accent}`}
 	              >
 	                <div className="rounded-full border border-white/20 bg-white/10 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-white/80 backdrop-blur">
 	                  Your research vault
