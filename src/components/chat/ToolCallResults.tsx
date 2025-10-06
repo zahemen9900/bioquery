@@ -286,6 +286,34 @@ const formatSimilarityScore = (value: number | null): string | null => {
 	return value.toFixed(3)
 }
 
+const getImageDownloadFilename = (image: ImageAssetReference, fallbackContentType?: string | null): string => {
+	const pathSegment = image.path?.split('/').pop()
+	if (pathSegment) {
+		const trimmed = pathSegment.trim()
+		if (trimmed) return trimmed
+	}
+
+	try {
+		const parsed = new URL(image.url)
+		const urlSegment = parsed.pathname.split('/').pop()
+		if (urlSegment) {
+			const cleaned = urlSegment.trim()
+			if (cleaned) return cleaned
+		}
+	} catch {
+		// Ignore URL parsing failures and fall back to defaults.
+	}
+
+	const baseFromPrompt = image.prompt
+		? image.prompt.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 42)
+		: ''
+	const safeBase = baseFromPrompt || 'bioquery-generated-image'
+	const typeSource = image.contentType ?? fallbackContentType ?? ''
+	const extension = typeSource.includes('/') ? typeSource.split('/').pop() : null
+	const safeExtension = extension && extension.length <= 8 ? extension : 'png'
+	return `${safeBase}.${safeExtension}`
+}
+
 const parseContextualResultEntries = (value: unknown): ContextualSearchResultEntry[] => {
 	if (!Array.isArray(value)) return []
 	const results: ContextualSearchResultEntry[] = []
@@ -680,18 +708,20 @@ const formatExpiryLabel = (expiresAt: string | null): string => {
 	if (!expiresAt) return 'Signed link active for 365 days'
 	const parsed = new Date(expiresAt)
 	if (Number.isNaN(parsed.getTime())) return 'Signed link active for 365 days'
-	return `Signed link expires ${parsed.toLocaleDateString(undefined, { dateStyle: 'medium' })}`
+	return `Expires ${parsed.toLocaleDateString(undefined, { dateStyle: 'medium' })}`
 }
 
 export function ToolCallResults({ message, toolId }: ToolCallResultsProps) {
 	const { showToast } = useToast()
 	const [savingMap, setSavingMap] = useState<Record<string, boolean>>({})
 	const [savedMap, setSavedMap] = useState<Record<string, boolean>>({})
+	const [downloadingImages, setDownloadingImages] = useState<Record<string, boolean>>({})
 	const [artifactCache, setArtifactCache] = useState<Record<string, ArtifactReference>>({})
 	const [documentCache, setDocumentCache] = useState<Record<string, DocumentReference>>({})
 	const [loadingArtifacts, setLoadingArtifacts] = useState<Record<string, boolean>>({})
 	const [loadingDocuments, setLoadingDocuments] = useState<Record<string, boolean>>({})
 	const [documentModal, setDocumentModal] = useState<DocumentReference | null>(null)
+	const [imageModal, setImageModal] = useState<ImageAssetReference | null>(null)
 	const [timelineModal, setTimelineModal] = useState<TimelineModalState | null>(null)
 	const [timelineIndex, setTimelineIndex] = useState(0)
 	const [visualModal, setVisualModal] = useState<VisualModalState | null>(null)
@@ -869,7 +899,40 @@ export function ToolCallResults({ message, toolId }: ToolCallResultsProps) {
 		setDocumentModal(loaded)
 	}
 
+	const handleDownloadImage = async (image: ImageAssetReference) => {
+		const key = image.url
+		if (!key) return
+		if (downloadingImages[key]) return
+		setDownloadingImages((prev) => ({ ...prev, [key]: true }))
+		try {
+			const response = await fetch(image.url)
+			if (!response.ok) {
+				throw new Error(`Failed to download image: ${response.status}`)
+			}
+			const blob = await response.blob()
+			const filename = getImageDownloadFilename(image, response.headers.get('Content-Type'))
+			const blobUrl = URL.createObjectURL(blob)
+			const link = document.createElement('a')
+			link.href = blobUrl
+			link.download = filename
+			document.body.appendChild(link)
+			link.click()
+			document.body.removeChild(link)
+			URL.revokeObjectURL(blobUrl)
+		} catch (error) {
+			console.error('Failed to download image', error)
+			showToast('We could not download the image. Try again shortly.')
+		} finally {
+			setDownloadingImages((prev) => {
+				const next = { ...prev }
+				delete next[key]
+				return next
+			})
+		}
+	}
+
 	const renderImageAsset = (image: ImageAssetReference) => {
+		const isDownloading = Boolean(downloadingImages[image.url])
 		return (
 			<div className="mt-3 rounded-2xl border border-biosphere-500/25 bg-biosphere-500/5 p-4 backdrop-blur">
 				<div className="flex items-start gap-3">
@@ -903,9 +966,21 @@ export function ToolCallResults({ message, toolId }: ToolCallResultsProps) {
 								type="button"
 								size="sm"
 								className="rounded-full bg-biosphere-500 text-space-900 hover:bg-biosphere-400"
-								onClick={() => openExternalLink(image.url)}
+								onClick={() => setImageModal(image)}
 							>
 								Open full image
+							</Button>
+							<Button
+								type="button"
+								size="sm"
+								variant="outline"
+								className="rounded-full border-biosphere-500/60 text-biosphere-100 hover:bg-biosphere-500/10"
+								onClick={() => {
+									void handleDownloadImage(image)
+								}}
+								disabled={isDownloading}
+							>
+								{isDownloading ? 'Downloading…' : 'Download image'}
 							</Button>
 							{image.sourceUrl ? (
 								<Button
@@ -1443,55 +1518,159 @@ export function ToolCallResults({ message, toolId }: ToolCallResultsProps) {
 				}
 			}}
 		>
-			{documentModal ? (
-				<DialogContent className="max-h-[90vh] max-w-5xl overflow-hidden">
-					<DialogHeader className="pr-8">
-						<DialogTitle className="text-2xl font-bold leading-tight">{documentModal.title ?? 'Generated document'}</DialogTitle>
-						<DialogDescription className="flex flex-wrap items-center gap-2 text-sm">
-							<span className="rounded-full bg-biosphere-500/15 px-3 py-1 text-xs font-medium uppercase tracking-wide text-biosphere-200">
-								{documentModal.documentType ?? 'document'}
-							</span>
-							{documentModal.tags.length ? (
-								<>
-									{documentModal.tags.map((tag) => (
-										<span key={tag} className="rounded-full border border-biosphere-500/30 bg-biosphere-500/5 px-3 py-1 text-xs text-biosphere-300 transition-colors hover:bg-biosphere-500/15">
-											{tag}
-										</span>
-									))}
-								</>
-							) : null}
-						</DialogDescription>
-					</DialogHeader>
-					<ScrollArea className="mt-6 h-[calc(90vh-200px)] max-h-[calc(90vh-180px)] pr-4">
-						<div className="space-y-8">
-							{documentModal.imageLink ? (
-								<div className="group relative overflow-hidden rounded-2xl border border-biosphere-500/25 shadow-2xl transition-all hover:border-biosphere-500/40 hover:shadow-biosphere-500/10">
-									<img 
-										src={documentModal.imageLink} 
-										alt={documentModal.title ?? 'Document illustration'} 
-										className="w-full transition-transform duration-300 group-hover:scale-[1.02]" 
+			{documentModal ? (() => {
+				const hasImage = Boolean(documentModal.imageLink)
+				const bodyContent = (
+					<div className="rounded-2xl border border-scheme-border-subtle/40 bg-gradient-to-br from-scheme-surface/50 to-scheme-surface/30 p-8 shadow-inner">
+						{documentModal.body ? (
+							<ReactMarkdown
+								remarkPlugins={[remarkGfm]}
+								className="prose prose-invert max-w-none text-base leading-relaxed text-scheme-text/95 [&>*]:mb-5 [&>*:last-child]:mb-0 [&_h1]:mb-6 [&_h1]:text-2xl [&_h1]:font-bold [&_h1]:text-biosphere-200 [&_h2]:mb-4 [&_h2]:text-xl [&_h2]:font-bold [&_h2]:text-biosphere-300 [&_h3]:mb-3 [&_h3]:text-lg [&_h3]:font-semibold [&_h3]:text-scheme-text [&_p]:leading-relaxed [&_strong]:font-semibold [&_strong]:text-scheme-text [&_em]:italic [&_em]:text-biosphere-200/90 [&_a]:font-medium [&_a]:text-biosphere-400 [&_a]:underline [&_a]:decoration-biosphere-500/30 [&_a]:underline-offset-2 [&_a]:transition-colors hover:[&_a]:text-biosphere-300 hover:[&_a]:decoration-biosphere-400/60 [&_ul]:list-disc [&_ul]:space-y-2 [&_ul]:pl-6 [&_ol]:list-decimal [&_ol]:space-y-2 [&_ol]:pl-6 [&_li]:leading-relaxed [&_blockquote]:border-l-4 [&_blockquote]:border-biosphere-500/40 [&_blockquote]:bg-scheme-muted/10 [&_blockquote]:py-2 [&_blockquote]:pl-4 [&_blockquote]:pr-3 [&_blockquote]:italic [&_blockquote]:text-scheme-muted-text [&_code]:rounded [&_code]:bg-biosphere-500/10 [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-sm [&_code]:text-biosphere-200 [&_pre]:overflow-x-auto [&_pre]:rounded-xl [&_pre]:border [&_pre]:border-scheme-border-subtle/50 [&_pre]:bg-space-900/40 [&_pre]:p-4 [&_table]:w-full [&_table]:border-collapse [&_table]:overflow-hidden [&_table]:rounded-lg [&_th]:border [&_th]:border-scheme-border-subtle/50 [&_th]:bg-biosphere-500/10 [&_th]:px-4 [&_th]:py-2 [&_th]:text-left [&_th]:font-semibold [&_th]:text-biosphere-200 [&_td]:border [&_td]:border-scheme-border-subtle/40 [&_td]:px-4 [&_td]:py-2 [&_hr]:my-8 [&_hr]:border-scheme-border-subtle/30"
+							>
+								{documentModal.body}
+							</ReactMarkdown>
+						) : (
+							<p className="text-center text-sm text-scheme-muted-text">No document body was provided.</p>
+						)}
+					</div>
+				)
+				const promptContent = documentModal.imagePrompt
+					? (
+						<div className="rounded-2xl border border-biosphere-500/25 bg-biosphere-500/5 p-5 text-sm text-biosphere-100/90">
+							<p className="text-xs font-semibold uppercase tracking-wide text-biosphere-200/80">About Image</p>
+							<p className="mt-2 leading-relaxed">{documentModal.imagePrompt}</p>
+						</div>
+					)
+					: null
+				return (
+					<DialogContent className="max-h-[90vh] max-w-5xl overflow-hidden">
+						<DialogHeader className="pr-8">
+							<DialogTitle className="text-2xl font-bold leading-tight">{documentModal.title ?? 'Generated document'}</DialogTitle>
+							<DialogDescription className="flex flex-wrap items-center gap-2 text-sm">
+								<span className="rounded-full bg-biosphere-500/15 px-3 py-1 text-xs font-medium uppercase tracking-wide text-biosphere-200">
+									{documentModal.documentType ?? 'document'}
+								</span>
+								{documentModal.tags.length ? (
+									<>
+										{documentModal.tags.map((tag) => (
+											<span key={tag} className="rounded-full border border-biosphere-500/30 bg-biosphere-500/5 px-3 py-1 text-xs text-biosphere-300 transition-colors hover:bg-biosphere-500/15">
+												{tag}
+											</span>
+										))}
+									</>
+								) : null}
+							</DialogDescription>
+						</DialogHeader>
+						{hasImage ? (
+							<div className="mt-6 flex flex-col gap-6 lg:h-[calc(90vh-220px)] lg:grid lg:grid-cols-[minmax(320px,360px)_1fr] lg:gap-8">
+								<div className="group relative flex min-h-[280px] items-center justify-center overflow-hidden rounded-3xl border border-biosphere-500/25 bg-space-950/60 p-4 lg:h-full">
+									<img
+										src={documentModal.imageLink ?? ''}
+										alt={documentModal.title ?? 'Document illustration'}
+										className="h-full w-full max-h-full object-contain transition-transform duration-300 group-hover:scale-[1.02]"
 									/>
 									<div className="absolute inset-0 bg-gradient-to-t from-space-900/30 to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
 								</div>
-							) : null}
-							<div className="rounded-2xl border border-scheme-border-subtle/40 bg-gradient-to-br from-scheme-surface/50 to-scheme-surface/30 p-8 shadow-inner">
-								{documentModal.body ? (
-									<ReactMarkdown
-										remarkPlugins={[remarkGfm]}
-										className="prose prose-invert max-w-none text-base leading-relaxed text-scheme-text/95 [&>*]:mb-5 [&>*:last-child]:mb-0 [&_h1]:mb-6 [&_h1]:text-2xl [&_h1]:font-bold [&_h1]:text-biosphere-200 [&_h2]:mb-4 [&_h2]:text-xl [&_h2]:font-bold [&_h2]:text-biosphere-300 [&_h3]:mb-3 [&_h3]:text-lg [&_h3]:font-semibold [&_h3]:text-scheme-text [&_p]:leading-relaxed [&_strong]:font-semibold [&_strong]:text-scheme-text [&_em]:italic [&_em]:text-biosphere-200/90 [&_a]:font-medium [&_a]:text-biosphere-400 [&_a]:underline [&_a]:decoration-biosphere-500/30 [&_a]:underline-offset-2 [&_a]:transition-colors hover:[&_a]:text-biosphere-300 hover:[&_a]:decoration-biosphere-400/60 [&_ul]:list-disc [&_ul]:space-y-2 [&_ul]:pl-6 [&_ol]:list-decimal [&_ol]:space-y-2 [&_ol]:pl-6 [&_li]:leading-relaxed [&_blockquote]:border-l-4 [&_blockquote]:border-biosphere-500/40 [&_blockquote]:bg-scheme-muted/10 [&_blockquote]:py-2 [&_blockquote]:pl-4 [&_blockquote]:pr-3 [&_blockquote]:italic [&_blockquote]:text-scheme-muted-text [&_code]:rounded [&_code]:bg-biosphere-500/10 [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-sm [&_code]:text-biosphere-200 [&_pre]:overflow-x-auto [&_pre]:rounded-xl [&_pre]:border [&_pre]:border-scheme-border-subtle/50 [&_pre]:bg-space-900/40 [&_pre]:p-4 [&_table]:w-full [&_table]:border-collapse [&_table]:overflow-hidden [&_table]:rounded-lg [&_th]:border [&_th]:border-scheme-border-subtle/50 [&_th]:bg-biosphere-500/10 [&_th]:px-4 [&_th]:py-2 [&_th]:text-left [&_th]:font-semibold [&_th]:text-biosphere-200 [&_td]:border [&_td]:border-scheme-border-subtle/40 [&_td]:px-4 [&_td]:py-2 [&_hr]:my-8 [&_hr]:border-scheme-border-subtle/30"
-									>
-										{documentModal.body}
-									</ReactMarkdown>
-								) : (
-									<p className="text-center text-sm text-scheme-muted-text">No document body was provided.</p>
-								)}
+								<ScrollArea className="flex-1 min-h-[280px] pr-4 lg:h-full">
+									<div className="space-y-6 pr-2 lg:pr-4">
+										{bodyContent}
+										{promptContent}
+									</div>
+								</ScrollArea>
 							</div>
-						</div>
-					</ScrollArea>
-				</DialogContent>
-			) : null}
+						) : (
+							<ScrollArea className="mt-6 h-[calc(90vh-200px)] max-h-[calc(90vh-180px)] pr-4">
+								<div className="space-y-6">
+									{bodyContent}
+									{promptContent}
+								</div>
+							</ScrollArea>
+						)}
+					</DialogContent>
+				)
+			})() : null}
 		</Dialog>
 	)
+
+		const imageModalDialog = (
+			<Dialog
+				open={Boolean(imageModal)}
+				onOpenChange={(open) => {
+					if (!open) {
+						setImageModal(null)
+					}
+				}}
+			>
+				{imageModal ? (
+					<DialogContent className="max-h-[90vh] max-w-4xl overflow-hidden">
+						<DialogHeader className="pr-6">
+							<DialogTitle className="text-2xl font-bold leading-tight">Generated image</DialogTitle>
+							<DialogDescription className="flex flex-wrap items-center gap-2 text-sm">
+								{imageModal.prompt ? (
+									<span className="rounded-full bg-biosphere-500/15 px-3 py-1 text-xs font-medium uppercase tracking-wide text-biosphere-200">
+										Prompt included
+									</span>
+								) : null}
+								{imageModal.tags.length
+									? imageModal.tags.slice(0, 4).map((tag) => (
+										<span
+											key={tag}
+											className="rounded-full border border-biosphere-500/30 bg-biosphere-500/5 px-3 py-1 text-xs text-biosphere-300"
+										>
+											{tag}
+										</span>
+									))
+									: null}
+							</DialogDescription>
+						</DialogHeader>
+						<div className="flex flex-col gap-6">
+							<div className="flex h-[65vh] items-center justify-center overflow-hidden rounded-3xl border border-biosphere-500/25 bg-space-950/60 p-4">
+								<img
+									src={imageModal.url}
+									alt="Generated image preview"
+									className="max-h-full w-full object-contain"
+								/>
+							</div>
+							<div className="flex flex-wrap items-center justify-between gap-3">
+								<div className="flex flex-wrap items-center gap-2">
+									<Button
+										type="button"
+										size="sm"
+										className="rounded-full bg-biosphere-500 text-space-900 hover:bg-biosphere-400"
+										onClick={() => {
+											void handleDownloadImage(imageModal)
+										}}
+										disabled={Boolean(downloadingImages[imageModal.url])}
+									>
+										{downloadingImages[imageModal.url] ? 'Downloading…' : 'Download image'}
+									</Button>
+									{imageModal.sourceUrl ? (
+										<Button
+											type="button"
+											size="sm"
+											variant="ghost"
+											className="rounded-full text-xs text-scheme-muted-text hover:text-scheme-text"
+											onClick={() => openExternalLink(imageModal.sourceUrl)}
+										>
+											Open source
+										</Button>
+									) : null}
+								</div>
+								{imageModal.expiresAt ? (
+									<span className="text-xs text-scheme-muted-text/85">{formatExpiryLabel(imageModal.expiresAt)}</span>
+								) : null}
+							</div>
+							{imageModal.prompt ? (
+								<div className="rounded-2xl border border-biosphere-500/20 bg-biosphere-500/5 p-5 text-sm text-biosphere-100/90">
+									<p className="text-xs font-semibold uppercase tracking-wide text-biosphere-200/80">About Image</p>
+									<p className="mt-2 leading-relaxed">{imageModal.prompt}</p>
+								</div>
+							) : null}
+						</div>
+					</DialogContent>
+				) : null}
+			</Dialog>
+		)
 
 	const timelineModalDialog = (
 		<Dialog
@@ -1552,26 +1731,40 @@ export function ToolCallResults({ message, toolId }: ToolCallResultsProps) {
 								return <p className="text-sm text-scheme-muted-text">No sections available.</p>
 							}
 							return (
-								<ScrollArea className="h-[calc(92vh-260px)] max-h-[calc(92vh-260px)] rounded-2xl border border-biosphere-500/20 bg-gradient-to-br from-scheme-surface/95 to-scheme-surface/80 shadow-xl">
-									<div className="space-y-6 p-8">
-										<div className="flex items-center gap-4">
-											<span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-biosphere-500/25 text-base font-bold text-biosphere-200 shadow-lg shadow-biosphere-500/20">
+								<div className="flex flex-col gap-6 overflow-hidden rounded-2xl border border-biosphere-500/20 bg-gradient-to-br from-scheme-surface/95 to-scheme-surface/80 p-6 shadow-xl lg:h-[calc(92vh-260px)] lg:grid lg:grid-cols-[minmax(320px,360px)_1fr] lg:p-8">
+									<div className="relative flex min-h-[320px] items-center justify-center overflow-hidden rounded-2xl border border-biosphere-500/25 bg-space-950/60 p-4 lg:h-full">
+										{activeSection.imageLink ? (
+											<img
+												src={activeSection.imageLink}
+												alt={activeSection.title}
+												className="h-full w-full max-h-full object-contain"
+											/>
+										) : (
+											<div className="flex h-full w-full items-center justify-center rounded-xl border border-dashed border-biosphere-500/30 bg-space-900/40 text-sm text-scheme-muted-text">
+												No image provided for this step.
+											</div>
+										)}
+									</div>
+									<div className="flex h-full min-h-0 flex-col gap-4">
+										<div className="flex flex-wrap items-center gap-3">
+											<span className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full bg-biosphere-500/25 text-base font-bold text-biosphere-200 shadow-lg shadow-biosphere-500/20">
 												{safeIndex + 1}
 											</span>
 											<h3 className="text-xl font-bold text-scheme-text">{activeSection.title}</h3>
 										</div>
-										<p className="text-base leading-relaxed text-scheme-text/95">{activeSection.description}</p>
-										{activeSection.imageLink ? (
-											<div className="overflow-hidden rounded-2xl border border-biosphere-500/25 shadow-2xl">
-												<img 
-													src={activeSection.imageLink} 
-													alt={activeSection.title} 
-													className="w-full h-auto object-contain" 
-												/>
+										<ScrollArea className="flex-1 min-h-0">
+											<div className="space-y-4 rounded-2xl border border-biosphere-500/15 bg-scheme-surface/70 p-5 pr-6 text-base leading-relaxed text-scheme-text/95">
+												<p>{activeSection.description}</p>
+												{activeSection.imagePrompt ? (
+													<div className="rounded-xl border border-biosphere-500/25 bg-biosphere-500/5 p-4 text-sm text-biosphere-100/90">
+														<p className="text-xs font-semibold uppercase tracking-wide text-biosphere-200/80">About Image</p>
+														<p className="mt-2 leading-relaxed italic">{activeSection.imagePrompt}</p>
+													</div>
+												) : null}
 											</div>
-										) : null}
+										</ScrollArea>
 									</div>
-								</ScrollArea>
+								</div>
 							)
 						})()}
 						<div className="flex items-center justify-between">
@@ -1833,6 +2026,7 @@ export function ToolCallResults({ message, toolId }: ToolCallResultsProps) {
 		<>
 			{content}
 			{documentModalDialog}
+			{imageModalDialog}
 			{timelineModalDialog}
 			{visualModalDialog}
 			{graphModalDialog}

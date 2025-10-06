@@ -24,3 +24,4 @@ dist-ssr
 *.sln
 *.sw?
 .env
+supabase/rag_src
