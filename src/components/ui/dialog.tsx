@@ -8,6 +8,10 @@ const DialogTrigger = DialogPrimitive.Trigger
 const DialogPortal = DialogPrimitive.Portal
 const DialogClose = DialogPrimitive.Close
 
+type DialogContentProps = React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> & {
+  hideClose?: boolean
+}
+
 function DialogOverlay({ className, ...props }: React.ComponentPropsWithoutRef<typeof DialogPrimitive.Overlay>) {
   return (
     <DialogPrimitive.Overlay
@@ -17,7 +21,7 @@ function DialogOverlay({ className, ...props }: React.ComponentPropsWithoutRef<t
   )
 }
 
-function DialogContent({ className, children, ...props }: React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>) {
+function DialogContent({ className, children, hideClose = false, ...props }: DialogContentProps) {
   return (
     <DialogPortal>
       <DialogOverlay />
@@ -31,10 +35,12 @@ function DialogContent({ className, children, ...props }: React.ComponentPropsWi
             className={cn('relative w-full max-w-2xl rounded-2xl border border-scheme-border/70 bg-scheme-surface p-6 shadow-2xl focus:outline-none', className)}
           >
             {children}
-            <DialogPrimitive.Close className="absolute right-4 top-4 rounded-lg bg-scheme-surface/80 p-1.5 text-scheme-muted-text transition-colors hover:bg-scheme-muted/20 hover:text-scheme-text focus:outline-none focus:ring-2 focus:ring-biosphere-500/50">
-              <HiOutlineXMark className="h-5 w-5" />
-              <span className="sr-only">Close</span>
-            </DialogPrimitive.Close>
+            {hideClose ? null : (
+              <DialogPrimitive.Close className="absolute right-4 top-4 rounded-lg bg-scheme-surface/80 p-1.5 text-scheme-muted-text transition-colors hover:bg-scheme-muted/20 hover:text-scheme-text focus:outline-none focus:ring-2 focus:ring-biosphere-500/50">
+                <HiOutlineXMark className="h-5 w-5" />
+                <span className="sr-only">Close</span>
+              </DialogPrimitive.Close>
+            )}
           </motion.div>
         </DialogPrimitive.Content>
       </div>

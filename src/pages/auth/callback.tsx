@@ -22,7 +22,25 @@ export default function AuthCallbackPage() {
 
     const finalizeSignIn = async () => {
       const { pathname, search, hash } = window.location
+
       if (hash && hash.includes('access_token')) {
+        const fragmentParams = new URLSearchParams(hash.replace(/^#/, ''))
+        const accessToken = fragmentParams.get('access_token')
+        const refreshToken = fragmentParams.get('refresh_token')
+
+        if (accessToken && refreshToken) {
+          const { error } = await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken,
+          })
+
+          if (error) {
+            console.error('Failed to store OAuth session from hash', error)
+            navigate(`/auth?error=${encodeURIComponent(error.message)}`, { replace: true })
+            return
+          }
+        }
+
         const cleanUrl = `${pathname}${search}`
         window.history.replaceState({}, document.title, cleanUrl)
       }
@@ -45,7 +63,7 @@ export default function AuthCallbackPage() {
 
       if (!currentSession && params.get('code')) {
         const code = params.get('code') as string
-  const { error } = await supabase.auth.exchangeCodeForSession(code)
+        const { error } = await supabase.auth.exchangeCodeForSession(code)
         if (error) {
           console.error('Failed to exchange auth code', error)
           navigate(`/auth?error=${encodeURIComponent(error.message)}`, { replace: true })

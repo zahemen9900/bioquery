@@ -144,8 +144,8 @@ export function ChatComposer({
                           className={cn(
                             'flex items-center justify-between rounded-xl border px-3 py-2 text-left transition',
                             isActive
-                              ? 'border-biosphere-500/60 bg-biosphere-500/15 text-biosphere-100'
-                              : 'border-scheme-border/40 text-scheme-text hover:border-biosphere-500/40 hover:text-biosphere-100',
+                              ? 'border-biosphere-500/60 bg-biosphere-500/15 text-biosphere-800 dark:text-biosphere-100'
+                              : 'border-scheme-border/40 text-scheme-text hover:border-biosphere-500/40 hover:text-biosphere-800 dark:hover:text-biosphere-100',
                           )}
                         >
                           <span>{option.label}</span>

@@ -409,7 +409,7 @@ export default function DiscoverPage() {
               <button
                 type="button"
                 onClick={handleOpenToolShowcase}
-                className="pointer-events-auto inline-flex items-center justify-center rounded-full border border-emerald-400/60 bg-emerald-500/15 px-6 py-2 text-sm font-semibold text-emerald-100 shadow-lg backdrop-blur hover:bg-emerald-500/20"
+                className="pointer-events-auto inline-flex items-center justify-center rounded-full border border-emerald-400/60 bg-emerald-500/15 px-6 py-2 text-sm font-semibold text-emerald-700 shadow-lg backdrop-blur hover:bg-emerald-500/20 dark:text-emerald-100"
               >
                 What can BioQuery craft for me?
               </button>
@@ -477,7 +477,7 @@ export default function DiscoverPage() {
                 </div>
               </div>
               <div
-                className={`flex min-h-[320px] flex-col items-center justify-center gap-6 p-8 text-center text-white md:p-10 bg-gradient-to-br ${TOOL_SHOWCASE_SLIDES[toolShowcaseStep].gradient}`}
+                className={`hidden min-h-[320px] flex-col items-center justify-center gap-6 p-8 text-center text-white md:flex md:p-10 bg-gradient-to-br ${TOOL_SHOWCASE_SLIDES[toolShowcaseStep].gradient}`}
               >
                 <div className="rounded-3xl border border-white/20 bg-white/10 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-white/80 backdrop-blur">
                   BioQuery tools
