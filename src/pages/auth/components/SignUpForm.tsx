@@ -102,43 +102,43 @@ export function SignUpForm({ onSwitchToSignIn }: { onSwitchToSignIn: () => void 
       exit={{ opacity: 0, y: -20 }}
       transition={{ duration: 0.4 }}
     >
-      <Card className="w-full border-scheme-border/60 bg-scheme-surface/95 shadow-2xl backdrop-blur-sm">
-        <CardHeader className="space-y-3 text-center">
+      <Card className="w-full border border-black/5 dark:border-white/10 bg-white/60 dark:bg-space-800/40 shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-2xl backdrop-blur-xl transition-colors duration-500 overflow-hidden">
+        <CardHeader className="space-y-3 text-center pt-8">
           <motion.div initial={{ scale: 0.9 }} animate={{ scale: 1 }} transition={{ duration: 0.3, delay: 0.1 }}>
-            <CardTitle className="text-3xl font-bold tracking-tight text-scheme-text">
+            <CardTitle className="font-display text-3xl font-bold tracking-tight text-slate-900 dark:text-white transition-colors duration-500">
               Create your account
             </CardTitle>
           </motion.div>
-          <CardDescription className="text-base text-scheme-muted">
+          <CardDescription className="text-base text-slate-600 dark:text-space-200 transition-colors duration-500">
             Join the next generation of space researchers
           </CardDescription>
         </CardHeader>
 
-        <CardContent className="space-y-6">
+        <CardContent className="space-y-6 pb-8">
           <form className="space-y-5" onSubmit={handleSubmit}>
             <div className="space-y-2">
-              <Label htmlFor="sign-up-name" className="text-scheme-text">
+              <Label htmlFor="sign-up-name" className="text-slate-700 dark:text-space-100 font-semibold transition-colors duration-500">
                 Full name
               </Label>
               <div className="relative">
-                <HiOutlineUser className="absolute left-3 top-1/2 size-5 -translate-y-1/2 text-scheme-muted" />
+                <HiOutlineUser className="absolute left-3 top-1/2 size-5 -translate-y-1/2 text-slate-400 dark:text-space-400" />
                 <Input
                   id="sign-up-name"
                   autoComplete="name"
                   placeholder="Dr. Jane Smith"
                   value={formData.fullName}
                   onChange={(e) => setFormData((prev) => ({ ...prev, fullName: e.target.value }))}
-                  className="pl-10"
+                  className="pl-10 h-11 bg-slate-50 dark:bg-space-900/50 border-black/10 dark:border-white/10 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-space-400 focus:border-biosphere-500 dark:focus:border-biosphere-500 transition-colors duration-500"
                 />
               </div>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="sign-up-email" className="text-scheme-text">
+              <Label htmlFor="sign-up-email" className="text-slate-700 dark:text-space-100 font-semibold transition-colors duration-500">
                 Email address
               </Label>
               <div className="relative">
-                <HiOutlineEnvelope className="absolute left-3 top-1/2 size-5 -translate-y-1/2 text-scheme-muted" />
+                <HiOutlineEnvelope className="absolute left-3 top-1/2 size-5 -translate-y-1/2 text-slate-400 dark:text-space-400" />
                 <Input
                   id="sign-up-email"
                   type="email"
@@ -147,17 +147,17 @@ export function SignUpForm({ onSwitchToSignIn }: { onSwitchToSignIn: () => void 
                   placeholder="researcher@nasa.gov"
                   value={formData.email}
                   onChange={(e) => setFormData((prev) => ({ ...prev, email: e.target.value }))}
-                  className="pl-10"
+                  className="pl-10 h-11 bg-slate-50 dark:bg-space-900/50 border-black/10 dark:border-white/10 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-space-400 focus:border-biosphere-500 dark:focus:border-biosphere-500 transition-colors duration-500"
                 />
               </div>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="sign-up-password" className="text-scheme-text">
+              <Label htmlFor="sign-up-password" className="text-slate-700 dark:text-space-100 font-semibold transition-colors duration-500">
                 Password
               </Label>
               <div className="relative">
-                <HiOutlineLockClosed className="absolute left-3 top-1/2 size-5 -translate-y-1/2 text-scheme-muted" />
+                <HiOutlineLockClosed className="absolute left-3 top-1/2 size-5 -translate-y-1/2 text-slate-400 dark:text-space-400" />
                 <Input
                   id="sign-up-password"
                   type="password"
@@ -166,7 +166,7 @@ export function SignUpForm({ onSwitchToSignIn }: { onSwitchToSignIn: () => void 
                   placeholder="Create a strong password"
                   value={formData.password}
                   onChange={(e) => setFormData((prev) => ({ ...prev, password: e.target.value }))}
-                  className="pl-10"
+                  className="pl-10 h-11 bg-slate-50 dark:bg-space-900/50 border-black/10 dark:border-white/10 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-space-400 focus:border-biosphere-500 dark:focus:border-biosphere-500 transition-colors duration-500"
                 />
               </div>
               <AnimatePresence>
@@ -178,12 +178,12 @@ export function SignUpForm({ onSwitchToSignIn }: { onSwitchToSignIn: () => void 
                     className="space-y-2 pt-2"
                   >
                     <div className="flex items-center justify-between text-xs">
-                      <span className="text-scheme-subtle">Password strength</span>
-                      <span className={`font-semibold ${strength.score >= 3 ? 'text-emerald-400' : 'text-scheme-text'}`}>
+                      <span className="text-slate-500 dark:text-space-300">Password strength</span>
+                      <span className={`font-semibold ${strength.score >= 3 ? 'text-biosphere-500' : 'text-slate-700 dark:text-space-100'}`}>
                         {strength.label}
                       </span>
                     </div>
-                    <div className="h-2 w-full overflow-hidden rounded-full bg-scheme-border/60">
+                    <div className="h-2 w-full overflow-hidden rounded-full bg-black/10 dark:bg-white/10">
                       <motion.div
                         initial={{ width: 0 }}
                         animate={{ width: `${(strength.score / 4) * 100}%` }}
@@ -191,7 +191,7 @@ export function SignUpForm({ onSwitchToSignIn }: { onSwitchToSignIn: () => void 
                         className={`h-full rounded-full bg-gradient-to-r ${strength.color}`}
                       />
                     </div>
-                    <p className="text-xs text-scheme-subtle">
+                    <p className="text-xs text-slate-500 dark:text-space-300">
                       Use 12+ characters with upper & lowercase, numbers, and symbols.
                     </p>
                   </motion.div>
@@ -200,11 +200,11 @@ export function SignUpForm({ onSwitchToSignIn }: { onSwitchToSignIn: () => void 
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="sign-up-confirm" className="text-scheme-text">
+              <Label htmlFor="sign-up-confirm" className="text-slate-700 dark:text-space-100 font-semibold transition-colors duration-500">
                 Confirm password
               </Label>
               <div className="relative">
-                <HiOutlineLockClosed className="absolute left-3 top-1/2 size-5 -translate-y-1/2 text-scheme-muted" />
+                <HiOutlineLockClosed className="absolute left-3 top-1/2 size-5 -translate-y-1/2 text-slate-400 dark:text-space-400" />
                 <Input
                   id="sign-up-confirm"
                   type="password"
@@ -213,7 +213,7 @@ export function SignUpForm({ onSwitchToSignIn }: { onSwitchToSignIn: () => void 
                   placeholder="Re-type your password"
                   value={formData.confirmPassword}
                   onChange={(e) => setFormData((prev) => ({ ...prev, confirmPassword: e.target.value }))}
-                  className="pl-10 pr-10"
+                  className="pl-10 pr-10 h-11 bg-slate-50 dark:bg-space-900/50 border-black/10 dark:border-white/10 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-space-400 focus:border-biosphere-500 dark:focus:border-biosphere-500 transition-colors duration-500"
                 />
                 <AnimatePresence>
                   {formData.confirmPassword && (
@@ -237,7 +237,7 @@ export function SignUpForm({ onSwitchToSignIn }: { onSwitchToSignIn: () => void 
             <Button
               type="submit"
               size="lg"
-              className="w-full"
+              className="w-full h-11 bg-biosphere-500 text-white dark:bg-biosphere-500 dark:text-space-900 hover:bg-biosphere-600 dark:hover:bg-white shadow-[0_0_15px_rgba(0,231,179,0.3)] dark:shadow-neon-teal font-bold transition-all duration-300 hover:scale-[1.02] active:scale-[0.98]"
               disabled={loading}
               iconRight={<HiArrowRight className="size-5" />}
             >
@@ -247,10 +247,12 @@ export function SignUpForm({ onSwitchToSignIn }: { onSwitchToSignIn: () => void 
 
           <div className="relative">
             <div className="absolute inset-0 flex items-center">
-              <Separator />
+              <Separator className="bg-black/10 dark:bg-white/10 transition-colors duration-500" />
             </div>
-            <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-scheme-surface px-2 text-scheme-subtle">or continue with</span>
+            <div className="relative flex justify-center text-xs uppercase font-bold tracking-wider">
+              <span className="bg-white dark:bg-space-900 px-3 text-slate-400 dark:text-space-400 rounded-full border border-black/5 dark:border-white/5 transition-colors duration-500">
+                or continue with
+              </span>
             </div>
           </div>
 
@@ -258,7 +260,7 @@ export function SignUpForm({ onSwitchToSignIn }: { onSwitchToSignIn: () => void 
             type="button"
             variant="outline"
             size="lg"
-            className="w-full"
+            className="w-full h-11 bg-white/50 dark:bg-space-800/50 border border-black/10 dark:border-white/10 hover:bg-slate-50 dark:hover:bg-space-700 text-slate-900 dark:text-white font-semibold transition-colors duration-500"
             onClick={handleGoogleSignUp}
             iconLeft={<FcGoogle className="size-5" />}
           >
@@ -269,11 +271,10 @@ export function SignUpForm({ onSwitchToSignIn }: { onSwitchToSignIn: () => void 
             <motion.div
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
-              className={`rounded-lg border px-4 py-3 text-sm ${
-                status.type === 'error'
-                  ? 'border-rose-500/40 bg-rose-500/10 text-rose-200'
-                  : 'border-emerald-500/40 bg-emerald-500/10 text-emerald-200'
-              }`}
+              className={`rounded-xl border px-4 py-3 text-sm font-medium ${status.type === 'error'
+                  ? 'border-rose-500/40 bg-rose-500/10 text-rose-600 dark:text-rose-200'
+                  : 'border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-200'
+                }`}
               role="status"
               aria-live="polite"
             >
@@ -281,13 +282,13 @@ export function SignUpForm({ onSwitchToSignIn }: { onSwitchToSignIn: () => void 
             </motion.div>
           )}
 
-          <div className="text-center">
-            <p className="text-sm text-scheme-subtle">
+          <div className="text-center pt-2">
+            <p className="text-sm text-slate-600 dark:text-space-200 transition-colors duration-500">
               Already have an account?{' '}
               <button
                 type="button"
                 onClick={onSwitchToSignIn}
-                className="font-semibold text-biosphere-500 hover:text-biosphere-600 transition-colors"
+                className="font-bold text-biosphere-600 dark:text-biosphere-400 hover:text-biosphere-700 dark:hover:text-biosphere-300 hover:underline transition-colors"
               >
                 Sign in here
               </button>
