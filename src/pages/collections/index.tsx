@@ -2,8 +2,8 @@ import { useEffect, useMemo, useState } from 'react'
 import { motion } from 'motion/react'
 import { useNavigate } from 'react-router-dom'
 
-import { HiMiniBars3CenterLeft } from 'react-icons/hi2'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { HiMiniBars3CenterLeft, HiOutlineMagnifyingGlass } from 'react-icons/hi2'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import supabase from '@/lib/supabase-client'
@@ -216,55 +216,68 @@ export default function CollectionsPage() {
 		})
 	}, [activeTab, collections, searchTerm])
 
-	const currentTab = TABS.find((tab) => tab.value === activeTab) ?? TABS[0]
-
 	return (
-		<div className="relative flex h-full flex-1 flex-col overflow-hidden bg-scheme-background">
-			<div className="pointer-events-none absolute inset-x-0 top-0 h-64 bg-gradient-to-b from-biosphere-500/10 via-scheme-background to-transparent" aria-hidden />
+		<div className="relative flex h-full flex-1 flex-col overflow-hidden bg-slate-50 dark:bg-space-950 transition-colors duration-500">
+			{/* Ambient background */}
+			<div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
+				<div className="absolute left-[10%] top-[-10%] h-[500px] w-[500px] rounded-full bg-biosphere-500/10 blur-[120px]" />
+				<div className="absolute right-[10%] top-[40%] h-[400px] w-[400px] rounded-full bg-accent-purple/5 dark:bg-accent-purple/10 blur-[120px]" />
+				<div className="absolute inset-0 bg-noise opacity-[0.02] mix-blend-overlay" />
+			</div>
 
-			<section className="relative border-b border-scheme-border/60 px-6 pb-8 pt-14 md:pt-8">
-				<button
-					type="button"
-					onClick={openMobileSidebar}
-					className={`${mobileMenuButtonClasses} absolute left-4 top-4`}
-					aria-label="Open navigation"
-				>
-					<HiMiniBars3CenterLeft className="h-5 w-5" />
-				</button>
-				<div className="mx-auto flex w-full max-w-5xl flex-col gap-5">
-					<div className="flex flex-wrap items-center justify-between gap-4">
-						<div>
-							<span className="text-xs font-semibold uppercase tracking-[0.2em] text-biosphere-400">Collections</span>
-							<h1 className="mt-3 text-3xl font-semibold text-scheme-text md:text-4xl">Your BioQuery library</h1>
-							<p className="mt-2 max-w-2xl text-sm text-scheme-muted-text md:text-base">
-								Track every document and visual your chats produce and return whenever you need a refresher.
-							</p>
+			<section className="relative border-b border-black/5 dark:border-white/10 px-6 pb-4 pt-8 md:pt-6 z-10 backdrop-blur-xl bg-white/40 dark:bg-space-900/60 shadow-sm">
+				<div className="mx-auto flex max-w-7xl flex-col gap-4 md:flex-row md:items-end md:justify-between">
+					{/* Header Text & Mobile Menu Button */}
+					<div className="flex flex-col gap-1">
+						<div className="flex items-center gap-3 mb-1">
+							<button type="button" onClick={openMobileSidebar} className={mobileMenuButtonClasses} aria-label="Open navigation">
+								<HiMiniBars3CenterLeft className="h-5 w-5" />
+							</button>
+							<div className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.2em] text-biosphere-600 dark:text-biosphere-400">
+								<span className="h-px w-6 bg-biosphere-500/50" />
+								Archives
+							</div>
 						</div>
-						<Input
-							value={searchTerm}
-							onChange={(event) => setSearchTerm(event.target.value)}
-							placeholder="Search by title, notes, or tags"
-							className="h-10 w-full max-w-sm rounded-full bg-scheme-surface/80 text-sm text-scheme-text"
-						/>
+						<h1 className="text-3xl font-bold font-display tracking-tight text-slate-900 dark:text-white leading-none">Your BioQuery Library</h1>
+						<p className="mt-1 max-w-2xl text-sm leading-relaxed text-slate-600 dark:text-space-300">
+							Track every document and visual your chats produce and return whenever you need a refresher.
+						</p>
 					</div>
 
-					<Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as TabValue)}>
-						<TabsList className="bg-scheme-surface/80 shadow-xl shadow-space-900/15">
-							{TABS.map((tab) => (
-								<TabsTrigger
-									key={tab.value}
-									value={tab.value}
-									className={cn('rounded-full px-5 py-2 text-sm font-semibold transition', activeTab === tab.value ? 'bg-biosphere-500 text-space-900 shadow-md' : 'text-scheme-muted-text hover:text-scheme-text')}
-								>
-									{tab.label}
-								</TabsTrigger>
-							))}
-						</TabsList>
+					{/* Search & Tabs Component Group */}
+					<div className="flex flex-col gap-3 w-full md:w-auto md:min-w-[400px]">
+						<div className="relative group">
+							<div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+								<HiOutlineMagnifyingGlass className="h-4 w-4 text-slate-400 transition-colors group-focus-within:text-biosphere-500" />
+							</div>
+							<Input
+								type="search"
+								placeholder="Search by title, notes, or tags"
+								value={searchTerm}
+								onChange={(e) => setSearchTerm(e.target.value)}
+								className="w-full bg-white/50 dark:bg-space-800/40 pl-10 pr-4 text-sm transition-all outline-none rounded-xl border border-black/5 dark:border-white/10 focus-visible:ring-1 focus-visible:ring-biosphere-500/50 focus-visible:border-biosphere-500/50 shadow-inner h-10"
+							/>
+						</div>
 
-						<TabsContent value={activeTab} className="mt-6 text-sm text-scheme-muted-text">
-							{currentTab.description}
-						</TabsContent>
-					</Tabs>
+						<Tabs value={activeTab} onValueChange={(val) => setActiveTab(val as TabValue)} className="w-full sm:w-auto">
+							<TabsList className="inline-flex h-10 items-center justify-start rounded-xl bg-white/40 dark:bg-space-800/40 p-1 text-slate-500 dark:text-space-400 border border-black/5 dark:border-white/5 backdrop-blur-md shadow-sm w-full outline-none overflow-x-auto no-scrollbar">
+								{TABS.map((tab) => (
+									<TabsTrigger
+										key={tab.value}
+										value={tab.value}
+										className={cn(
+											'rounded-[0.6rem] px-4 py-1.5 text-xs font-bold transition-all duration-300 flex-shrink-0',
+											activeTab === tab.value
+												? 'bg-biosphere-500/15 dark:bg-biosphere-500/20 text-biosphere-600 dark:text-biosphere-400 shadow-[0_2px_10px_rgba(0,231,179,0.15)] ring-1 ring-biosphere-500/30'
+												: 'hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/50 dark:hover:bg-space-700/50'
+										)}
+									>
+										{tab.label}
+									</TabsTrigger>
+								))}
+							</TabsList>
+						</Tabs>
+					</div>
 				</div>
 			</section>
 
@@ -282,21 +295,22 @@ export default function CollectionsPage() {
 					) : null}
 
 					{!loading && filteredCollections.length === 0 ? (
-						<div className="rounded-3xl border border-dashed border-scheme-border/60 bg-scheme-surface/80 px-10 py-16 text-center shadow-inner">
+						<div className="rounded-[2.5rem] border border-black/5 dark:border-white/10 bg-white/40 dark:bg-space-800/20 backdrop-blur-xl px-10 py-20 text-center shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-2xl relative overflow-hidden">
+							<div className="absolute inset-0 bg-noise opacity-[0.015] pointer-events-none" />
 							<motion.div
 								initial={{ opacity: 0, y: 12 }}
 								animate={{ opacity: 1, y: 0 }}
 								transition={{ duration: 0.35 }}
 								className="mx-auto flex max-w-xl flex-col items-center gap-4"
 							>
-								<div className="rounded-full bg-biosphere-500/15 px-4 py-2 text-sm font-semibold text-biosphere-400">
+								<div className="rounded-2xl bg-biosphere-500/10 dark:bg-biosphere-500/20 ring-1 ring-biosphere-500/30 px-5 py-2 text-sm font-bold text-biosphere-600 dark:text-biosphere-400 shadow-[0_0_15px_rgba(0,231,179,0.1)]">
 									Nothing saved yet
 								</div>
-								<h2 className="text-2xl font-semibold text-scheme-text">Create something in Discover</h2>
-								<p className="text-sm text-scheme-muted-text">
+								<h2 className="text-3xl font-bold font-display text-slate-900 dark:text-white mt-2">Create something in Discover</h2>
+								<p className="text-lg text-slate-600 dark:text-space-300 max-w-md mx-auto">
 									Ask BioQuery for documents or visuals and they will appear here automatically.
 								</p>
-								<Button className="mt-2 rounded-full px-6" onClick={() => navigate('/discover')}>
+								<Button className="mt-4 rounded-xl px-8 h-12 bg-biosphere-500 text-white dark:text-space-900 font-bold shadow-[0_0_15px_rgba(0,231,179,0.3)] dark:shadow-neon-teal hover:bg-biosphere-600 dark:hover:bg-white hover:scale-[1.02] active:scale-[0.98] transition-all duration-300" onClick={() => navigate('/discover')}>
 									Open Discover
 								</Button>
 							</motion.div>
@@ -310,6 +324,6 @@ export default function CollectionsPage() {
 					</div>
 				</div>
 			</div>
-		</div>
+		</div >
 	)
 }
