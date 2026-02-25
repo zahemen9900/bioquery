@@ -1,25 +1,132 @@
-import { useState } from 'react'
+import { useId, useMemo, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import {
-    HiOutlineChartBarSquare,
-    HiOutlineGlobeAlt,
-    HiOutlineQueueList,
-    HiOutlineSparkles,
-} from 'react-icons/hi2'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { cn } from '@/lib/utils'
 
-import {
+import type {
     TimelineData,
     VisualChartData,
     KnowledgeGraphData,
-    CHART_COLORS,
+    KnowledgeGraphNode,
+    KnowledgeGraphEdge,
     DocumentModalData
 } from './ArtifactUtils'
-import { GraphVisualization } from './ArtifactUtils' // Wait, GraphVisualization is in ArtifactUtils? Yes, currently.
+import { CHART_COLORS } from './ArtifactUtils'
+
+// ─── Inline Graph SVG renderer (cannot live in a .ts file) ──────────────────
+function GraphVisualization({
+    nodes,
+    edges,
+    selectedNodeId,
+    onSelect,
+}: {
+    nodes: KnowledgeGraphNode[]
+    edges: KnowledgeGraphEdge[]
+    selectedNodeId: string | null
+    onSelect: (nodeId: string) => void
+}) {
+    const size = 800
+    const center = size / 2
+    const rawId = useId()
+    const gradientId = useMemo(() => rawId.replace(/:/g, ''), [rawId])
+    const activeNodeId = selectedNodeId && nodes.some((n) => n.id === selectedNodeId) ? selectedNodeId : nodes[0]?.id ?? null
+
+    const layout = useMemo(() => {
+        const positions = new Map<string, { x: number; y: number }>()
+        if (!nodes.length) return positions
+        const focusId = activeNodeId ?? nodes[0]?.id
+        if (!focusId) return positions
+        const connectedIds = new Set<string>()
+        for (const edge of edges) {
+            if (edge.source === focusId) connectedIds.add(edge.target)
+            if (edge.target === focusId) connectedIds.add(edge.source)
+        }
+        positions.set(focusId, { x: center, y: center })
+        const others = nodes.filter((n) => n.id !== focusId)
+        const primary = others.filter((n) => connectedIds.has(n.id))
+        const secondary = others.filter((n) => !connectedIds.has(n.id))
+        const place = (list: KnowledgeGraphNode[], radius: number) => {
+            if (!list.length) return
+            const step = (Math.PI * 2) / list.length
+            list.forEach((n, i) => {
+                const angle = -Math.PI / 2 + i * step
+                positions.set(n.id, { x: center + Math.cos(angle) * radius, y: center + Math.sin(angle) * radius })
+            })
+        }
+        place(primary, size * 0.32)
+        place(secondary, size * 0.45)
+        return positions
+    }, [nodes, edges, activeNodeId, center])
+
+    const neighborSet = useMemo(() => {
+        const s = new Set<string>()
+        if (!activeNodeId) return s
+        for (const edge of edges) {
+            if (edge.source === activeNodeId) s.add(edge.target)
+            if (edge.target === activeNodeId) s.add(edge.source)
+        }
+        return s
+    }, [edges, activeNodeId])
+
+    if (!nodes.length) return <div className="flex h-full items-center justify-center text-sm text-slate-500">No graph data.</div>
+
+    return (
+        <svg viewBox={`0 0 ${size} ${size}`} className="h-full w-full">
+            <defs>
+                <radialGradient id={`${gradientId}-bg`} cx="50%" cy="50%" r="70%">
+                    <stop offset="0%" stopColor="rgba(59, 130, 246, 0.1)" />
+                    <stop offset="100%" stopColor="rgba(15, 23, 42, 0.05)" />
+                </radialGradient>
+            </defs>
+            <rect width={size} height={size} fill={`url(#${gradientId}-bg)`} rx={38} ry={38} />
+            {edges.map((edge, i) => {
+                const src = layout.get(edge.source)
+                const tgt = layout.get(edge.target)
+                if (!src || !tgt) return null
+                const isActive = activeNodeId ? edge.source === activeNodeId || edge.target === activeNodeId : false
+                const midX = (src.x + tgt.x) / 2
+                const midY = (src.y + tgt.y) / 2
+                return (
+                    <g key={`e-${i}`}>
+                        <line x1={src.x} y1={src.y} x2={tgt.x} y2={tgt.y}
+                            stroke={isActive ? 'rgba(168,85,247,0.65)' : 'rgba(148, 163, 184, 0.35)'}
+                            strokeWidth={isActive ? 3 : 1.6} strokeLinecap="round" />
+                        {edge.relation ? (
+                            <text x={midX} y={midY - 6} textAnchor="middle" fontSize={12} fill="rgba(226, 232, 240, 0.7)">
+                                {edge.relation}
+                            </text>
+                        ) : null}
+                    </g>
+                )
+            })}
+            {nodes.map((node) => {
+                const pos = layout.get(node.id)
+                if (!pos) return null
+                const isActive = node.id === activeNodeId
+                const isNeighbor = neighborSet.has(node.id)
+                const r = isActive ? 26 : isNeighbor ? 20 : 16
+                const fill = isActive ? 'rgba(52,211,153,0.9)' : isNeighbor ? 'rgba(168,85,247,0.75)' : 'rgba(148,163,184,0.6)'
+                return (
+                    <g key={node.id} transform={`translate(${pos.x}, ${pos.y})`} className="cursor-pointer" onClick={() => onSelect(node.id)}>
+                        {isActive ? <circle r={r + 8} fill="none" stroke="rgba(52,211,153,0.4)" strokeWidth={3} /> : null}
+                        <circle r={r} fill={fill} stroke="rgba(10,15,30,0.9)" strokeWidth={isActive ? 3 : 2} />
+                        <text y={r + 20} textAnchor="middle" fontSize={isActive ? 16 : 13} fill="rgba(226,232,240,0.95)" style={{ pointerEvents: 'none' }}>
+                            {node.label}
+                        </text>
+                        {node.type ? (
+                            <text y={r + 36} textAnchor="middle" fontSize={11} fill="rgba(148,163,184,0.7)" style={{ pointerEvents: 'none' }}>
+                                {node.type.toUpperCase()}
+                            </text>
+                        ) : null}
+                    </g>
+                )
+            })}
+        </svg>
+    )
+}
 
 export function DocumentArtifactModal({ data, open, onOpenChange }: { data: DocumentModalData | null; open: boolean; onOpenChange: (open: boolean) => void }) {
     if (!data) return null;
@@ -370,7 +477,7 @@ export function GraphArtifactModal({ data, artifactTitle, open, onOpenChange }: 
                                             nodes={data.nodes}
                                             edges={data.edges}
                                             selectedNodeId={activeNodeId}
-                                            onSelect={(nodeId) => setGraphSelection(nodeId)}
+                                            onSelect={(nodeId: string) => setGraphSelection(nodeId)}
                                         />
                                     </div>
                                     <ScrollArea className="max-h-[30vh]">

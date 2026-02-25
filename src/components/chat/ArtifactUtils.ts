@@ -1,25 +1,3 @@
-import { useId, useMemo } from 'react'
-
-
-type ToolCallEntry = {
-	id: number
-	name: string
-	status: 'pending' | 'success' | 'error'
-	error: string | null
-	summary?: Record<string, unknown> | null
-}
-
-type DocumentReference = {
-	id: string
-	title: string | null
-	documentType: string | null
-	tags: string[]
-	preview: string | null
-	body: string | null
-	imagePrompt: string | null
-	imageLink: string | null
-}
-
 type ArtifactReference = {
 	id: string
 	type: string
@@ -29,19 +7,6 @@ type ArtifactReference = {
 	metrics: Record<string, unknown> | null
 	data: Record<string, unknown> | null
 }
-
-type ImageAssetReference = {
-	url: string
-	prompt: string | null
-	expiresAt: string | null
-	showToUser: boolean
-	tags: string[]
-	bucket: string | null
-	path: string | null
-	contentType: string | null
-	sourceUrl: string | null
-}
-
 
 type TimelineSection = {
 	title: string
@@ -86,32 +51,6 @@ export type KnowledgeGraphData = {
 	context: string | null
 	tags: string[]
 }
-
-type ContextualSearchResultEntry = {
-	pmcid: string | null
-	title: string | null
-	url: string | null
-	chunkIndex: number | null
-	text: string
-	similarityScore: number | null
-}
-
-type ContextualSearchData = {
-	query: string
-	topK: number
-	results: ContextualSearchResultEntry[]
-}
-
-type AnswerWithSourcesData = {
-	query: string
-	answer: string
-	sources: ContextualSearchResultEntry[]
-}
-
-
-
-
-
 
 export const parseStringArray = (value: unknown, limit = 16): string[] => {
 	if (!Array.isArray(value)) return []
@@ -214,33 +153,6 @@ const parseGraphEdgesData = (value: unknown): KnowledgeGraphEdge[] => {
 	return edges
 }
 
-const truncateSnippet = (value: string, limit = 480): string => {
-	if (value.length <= limit) return value
-	return `${value.slice(0, limit)}…`
-}
-
-
-const parseContextualResultEntries = (value: unknown): ContextualSearchResultEntry[] => {
-	if (!Array.isArray(value)) return []
-	const results: ContextualSearchResultEntry[] = []
-	for (const entry of value) {
-		if (!entry || typeof entry !== 'object') continue
-		const record = entry as Record<string, unknown>
-		const text = ensureString(record.text)
-		if (!text) continue
-		const chunkIndexValue = coerceNumber(record.chunk_index)
-		results.push({
-			pmcid: ensureString(record.pmcid),
-			title: ensureString(record.title),
-			url: ensureString(record.url),
-			chunkIndex: chunkIndexValue === null ? null : Math.trunc(chunkIndexValue),
-			text: truncateSnippet(text),
-			similarityScore: coerceNumber(record.similarity_score),
-		})
-	}
-	return results
-}
-
 export const toTimelineData = (artifact: ArtifactReference): TimelineData | null => {
 	const source = ensureRecord(artifact.data)
 	if (!source) return null
@@ -274,13 +186,6 @@ export const toKnowledgeGraphData = (artifact: ArtifactReference): KnowledgeGrap
 }
 
 export const CHART_COLORS = ['#60a5fa', '#34d399', '#fbbf24', '#f472b6', '#a78bfa', '#f87171']
-
-
-
-
-
-
-
 
 export type DocumentModalData = {
 	title: string | null
