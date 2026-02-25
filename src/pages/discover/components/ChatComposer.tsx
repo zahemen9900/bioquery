@@ -183,7 +183,7 @@ export function ChatComposer({
             placeholder={placeholder}
             rows={1}
             className={cn(
-              'max-h-[168px] min-h-[52px] flex-1 resize-none border-0 bg-transparent px-4 py-3 text-base text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-space-400 font-medium focus-visible:outline-none focus-visible:ring-0',
+              'max-h-[168px] min-h-[48px] flex-1 resize-none border-0 bg-transparent px-4 py-3 text-base text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-space-400 font-medium focus-visible:outline-none focus-visible:ring-0',
               'scrollbar-thin scrollbar-track-transparent scrollbar-thumb-slate-200 dark:scrollbar-thumb-space-700',
             )}
             disabled={disabled}
@@ -195,14 +195,23 @@ export function ChatComposer({
             className={cn(
               'shrink-0 rounded-[1.25rem] transition-all duration-300',
               isHeroMode ? 'h-12 w-12' : 'h-10 w-10',
-              !value.trim()
-                ? 'bg-slate-100 dark:bg-space-800 text-slate-400 dark:text-space-500 hover:bg-slate-200 dark:hover:bg-space-700 hover:text-slate-500 dark:hover:text-space-400'
-                : 'bg-biosphere-500 text-white dark:text-space-900 hover:bg-biosphere-600 dark:hover:bg-white shadow-[0_0_15px_rgba(0,231,179,0.3)] dark:shadow-neon-teal hover:scale-105 active:scale-95',
+              disabled
+                ? 'bg-biosphere-500/20 text-biosphere-500 cursor-not-allowed shadow-none'
+                : !value.trim()
+                  ? 'bg-slate-100 dark:bg-space-800 text-slate-400 dark:text-space-500 hover:bg-slate-200 dark:hover:bg-space-700 hover:text-slate-500 dark:hover:text-space-400'
+                  : 'bg-biosphere-500 text-white dark:text-space-900 hover:bg-biosphere-600 dark:hover:bg-white shadow-[0_0_15px_rgba(0,231,179,0.3)] dark:shadow-neon-teal hover:scale-105 active:scale-95',
             )}
             onClick={onSubmit}
             disabled={disabled || !value.trim()}
           >
-            <HiOutlinePaperAirplane className="h-5 w-5" />
+            {disabled ? (
+              <svg className="h-5 w-5 animate-spin drop-shadow-[0_0_8px_rgba(0,231,179,0.8)]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+            ) : (
+              <HiOutlinePaperAirplane className={cn("h-5 w-5", value.trim() && "drop-shadow-[0_0_8px_rgba(255,255,255,0.4)]")} />
+            )}
           </Button>
         </div>
 
@@ -220,13 +229,13 @@ export function ChatComposer({
         </AnimatePresence>
 
         {!isHeroMode ? (
-          <div className="mt-3 flex items-center justify-between px-2 text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-space-500">
+          <div className="mt-3 hidden sm:flex items-center justify-between px-2 text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-space-500">
             <span>
               Press{' '}
               <kbd className="rounded-md border border-black/10 dark:border-white/10 bg-white/50 dark:bg-space-800/50 px-1.5 py-0.5 font-mono shadow-sm mx-0.5">Shift + Enter</kbd> to newline
             </span>
             <span className="flex items-center gap-3">
-              <span className="rounded-full border border-biosphere-500/20 bg-biosphere-500/10 dark:bg-biosphere-500/20 px-2.5 py-1 text-biosphere-600 dark:text-biosphere-400">
+              <span className="rounded-full border border-biosphere-500/20 bg-biosphere-500/10 dark:bg-biosphere-500/20 px-2.5 py-1 text-biosphere-600 dark:text-biosphere-400 hover:bg-biosphere-500/20 transition-colors cursor-default">
                 Mode: {toolMode === 'web-search' ? 'Web search' : 'Research tools'}
               </span>
             </span>

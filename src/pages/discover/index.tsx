@@ -188,17 +188,17 @@ export default function DiscoverPage() {
                 <PopoverTrigger asChild>
                   <button
                     type="button"
-                    className="group inline-flex items-center gap-2 rounded-lg bg-transparent px-2 py-1 text-left text-sm font-medium text-scheme-text transition hover:bg-scheme-surface-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-biosphere-500"
+                    className="group flex items-center gap-2.5 rounded-full border border-black/5 dark:border-white/10 bg-white/60 dark:bg-space-800/60 px-4 py-1.5 text-sm font-semibold text-slate-700 dark:text-space-200 shadow-sm backdrop-blur-md transition-all hover:border-black/10 dark:hover:border-white/20 hover:bg-white/80 dark:hover:bg-space-800/80 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-biosphere-500/50"
                     aria-haspopup="menu"
                     aria-expanded={menuOpen}
                   >
                     {selectedChat?.is_starred ? (
-                      <HiMiniStar className="h-4 w-4 text-amber-400" />
+                      <HiMiniStar className="h-4 w-4 text-amber-500 drop-shadow-[0_0_8px_rgba(245,158,11,0.5)] transition-transform group-hover:scale-110" />
                     ) : (
-                      <HiMiniSparkles className="h-4 w-4 text-biosphere-500" />
+                      <HiMiniSparkles className="h-4 w-4 text-biosphere-500 transition-transform group-hover:scale-110" />
                     )}
-                    <span>{displayChatName}</span>
-                    <HiMiniChevronDown className="h-4 w-4 text-scheme-muted-text transition group-hover:text-scheme-text" />
+                    <span className="truncate max-w-[200px] md:max-w-[400px] transition-colors group-hover:text-slate-900 dark:group-hover:text-white">{displayChatName}</span>
+                    <HiMiniChevronDown className="h-4 w-4 text-slate-400 dark:text-space-400 transition-all group-hover:text-slate-600 dark:group-hover:text-space-300 group-hover:translate-y-[1px]" />
                   </button>
                 </PopoverTrigger>
                 <PopoverContent className="w-80 rounded-2xl border-black/5 dark:border-white/10 bg-white/95 dark:bg-space-900/95 backdrop-blur-2xl shadow-[0_8px_30px_rgb(0,0,0,0.12)] dark:shadow-[0_8px_30px_rgba(0,0,0,0.6)] p-5">

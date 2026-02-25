@@ -30,9 +30,24 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
 import { Sheet, SheetContent } from '@/components/ui/sheet'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 
 interface AppLayoutProps {
   children: React.ReactNode
+}
+
+function SidebarTooltip({ children, label, collapsed }: { children: React.ReactNode, label: string, collapsed: boolean }) {
+  if (!collapsed) return <>{children}</>
+  return (
+    <Tooltip delayDuration={0}>
+      <TooltipTrigger asChild>
+        {children}
+      </TooltipTrigger>
+      <TooltipContent side="right" sideOffset={12}>
+        {label}
+      </TooltipContent>
+    </Tooltip>
+  )
 }
 
 const CHAT_SECTIONS: Array<{ label: string; key: 'starredChats' | 'recentChats' }> = [
@@ -154,29 +169,34 @@ function SidebarChatPill({
     setMenuBusy(false)
   }
 
-  // --- Collapsed pill: a clean, compact avatar with a letter or star ---
   if (collapsed) {
     const initials = chat.chat_name
       ? chat.chat_name.replace(/[^a-zA-Z]/g, '').slice(0, 1).toUpperCase() || '#'
       : '#'
     return (
-      <button
-        type="button"
-        onClick={() => onSelect(chat.id)}
-        title={chat.chat_name ?? 'Untitled chat'}
-        className={cn(
-          'flex h-9 w-9 items-center justify-center rounded-xl transition-all duration-200',
-          isActive
-            ? 'bg-biosphere-500/20 text-biosphere-500 ring-1 ring-biosphere-500/40 shadow-[0_0_12px_rgba(0,231,179,0.2)]'
-            : 'bg-white/10 dark:bg-space-800/60 text-slate-500 dark:text-space-400 hover:bg-white/20 dark:hover:bg-space-700/60 hover:text-slate-700 dark:hover:text-white ring-1 ring-black/5 dark:ring-white/8'
-        )}
-      >
-        {chat.is_starred ? (
-          <HiMiniStar className={cn('h-4 w-4', isActive ? 'text-amber-400' : 'text-amber-400/70')} />
-        ) : (
-          <span className="text-[11px] font-bold leading-none tracking-wide">{initials}</span>
-        )}
-      </button>
+      <Tooltip delayDuration={0}>
+        <TooltipTrigger asChild>
+          <button
+            type="button"
+            onClick={() => onSelect(chat.id)}
+            className={cn(
+              'flex h-9 w-9 items-center justify-center rounded-xl transition-all duration-200',
+              isActive
+                ? 'bg-biosphere-500/20 text-biosphere-500 ring-1 ring-biosphere-500/40 shadow-[0_0_12px_rgba(0,231,179,0.2)]'
+                : 'bg-white/10 dark:bg-space-800/60 text-slate-500 dark:text-space-400 hover:bg-white/20 dark:hover:bg-space-700/60 hover:text-slate-700 dark:hover:text-white ring-1 ring-black/5 dark:ring-white/8'
+            )}
+          >
+            {chat.is_starred ? (
+              <HiMiniStar className={cn('h-4 w-4', isActive ? 'text-amber-400' : 'text-amber-400/70')} />
+            ) : (
+              <span className="text-[11px] font-bold leading-none tracking-wide">{initials}</span>
+            )}
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side="right" sideOffset={12} className="max-w-[16rem] leading-relaxed">
+          {chat.chat_name ?? 'Untitled chat'}
+        </TooltipContent>
+      </Tooltip>
     )
   }
 
@@ -513,54 +533,60 @@ export default function AppLayout({ children }: AppLayoutProps) {
       <div className={cn('flex-1 overflow-hidden px-4 py-5', collapsed && 'px-2')}>
         <div className={cn('flex h-full flex-col gap-6', collapsed && 'items-center gap-4')}>
           <div className="flex w-full flex-col gap-3">
-            <Link
-              to="/discover"
-              onClick={() => setSidebarOpen(false)}
-              className={cn(
-                'group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-300',
-                location.pathname.startsWith('/discover')
-                  ? 'bg-biosphere-500/10 dark:bg-biosphere-500/20 text-biosphere-600 dark:text-biosphere-400 ring-1 ring-inset ring-biosphere-500/30 dark:ring-biosphere-500/50 shadow-[0_0_15px_rgba(0,231,179,0.1)]'
-                  : 'text-slate-600 dark:text-space-300 hover:bg-slate-200/50 dark:hover:bg-space-800/50 hover:text-slate-900 dark:hover:text-white',
-                collapsed && 'justify-center px-0',
-              )}
-              title="Discover"
-            >
-              <HiOutlineSparkles className="h-5 w-5" />
-              {!collapsed && <span>Discover</span>}
-            </Link>
+            <SidebarTooltip label="Discover" collapsed={collapsed}>
+              <Link
+                to="/discover"
+                onClick={() => setSidebarOpen(false)}
+                className={cn(
+                  'group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-300 relative',
+                  location.pathname.startsWith('/discover')
+                    ? 'bg-biosphere-500/10 dark:bg-biosphere-500/20 text-biosphere-600 dark:text-biosphere-400 ring-1 ring-inset ring-biosphere-500/30 dark:ring-biosphere-500/50 shadow-[0_0_15px_rgba(0,231,179,0.1)]'
+                    : 'text-slate-600 dark:text-space-300 hover:bg-slate-200/50 dark:hover:bg-space-800/50 hover:text-slate-900 dark:hover:text-white',
+                  collapsed && 'justify-center px-0',
+                )}
+                title={collapsed ? undefined : "Discover"}
+              >
+                <HiOutlineSparkles className="h-5 w-5" />
+                {!collapsed && <span>Discover</span>}
+              </Link>
+            </SidebarTooltip>
 
-            <Link
-              to="/collections"
-              onClick={() => setSidebarOpen(false)}
-              className={cn(
-                'group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-300',
-                location.pathname === '/collections'
-                  ? 'bg-biosphere-500/10 dark:bg-biosphere-500/20 text-biosphere-600 dark:text-biosphere-400 ring-1 ring-inset ring-biosphere-500/30 dark:ring-biosphere-500/50 shadow-[0_0_15px_rgba(0,231,179,0.1)]'
-                  : 'text-slate-600 dark:text-space-300 hover:bg-slate-200/50 dark:hover:bg-space-800/50 hover:text-slate-900 dark:hover:text-white',
-                collapsed && 'justify-center px-0',
-              )}
-              title="Collections"
-            >
-              <HiOutlineSquares2X2 className="h-5 w-5" />
-              {!collapsed && <span>Collections</span>}
-            </Link>
+            <SidebarTooltip label="Collections" collapsed={collapsed}>
+              <Link
+                to="/collections"
+                onClick={() => setSidebarOpen(false)}
+                className={cn(
+                  'group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-300 relative',
+                  location.pathname === '/collections'
+                    ? 'bg-biosphere-500/10 dark:bg-biosphere-500/20 text-biosphere-600 dark:text-biosphere-400 ring-1 ring-inset ring-biosphere-500/30 dark:ring-biosphere-500/50 shadow-[0_0_15px_rgba(0,231,179,0.1)]'
+                    : 'text-slate-600 dark:text-space-300 hover:bg-slate-200/50 dark:hover:bg-space-800/50 hover:text-slate-900 dark:hover:text-white',
+                  collapsed && 'justify-center px-0',
+                )}
+                title={collapsed ? undefined : "Collections"}
+              >
+                <HiOutlineSquares2X2 className="h-5 w-5" />
+                {!collapsed && <span>Collections</span>}
+              </Link>
+            </SidebarTooltip>
           </div>
 
           <div className="w-full space-y-3">
             {!collapsed && <h3 className="px-1 text-sm font-semibold uppercase tracking-wide text-scheme-muted-text">Chats</h3>}
-            <Button
-              onClick={handleCreateChat}
-              iconLeft={<HiOutlinePencilSquare className="h-4 w-4" />}
-              className={cn(
-                'w-full rounded-lg bg-biosphere-500 text-sm font-bold text-white dark:text-space-900 shadow-[0_0_15px_rgba(0,231,179,0.3)] dark:shadow-neon-teal transition-all duration-300 hover:scale-[1.02] hover:bg-biosphere-600 dark:hover:bg-white active:scale-[0.98]',
-                collapsed ? 'h-10 justify-center px-0' : 'h-11',
-              )}
-              size={collapsed ? 'icon' : 'default'}
-              title="Start a new chat"
-              aria-label="Start a new chat"
-            >
-              {collapsed ? <span className="sr-only">New Chat</span> : 'New Chat'}
-            </Button>
+            <SidebarTooltip label="Start a new chat" collapsed={collapsed}>
+              <Button
+                onClick={handleCreateChat}
+                iconLeft={<HiOutlinePencilSquare className="h-4 w-4" />}
+                className={cn(
+                  'w-full rounded-lg bg-biosphere-500 text-sm font-bold text-white dark:text-space-900 shadow-[0_0_15px_rgba(0,231,179,0.3)] dark:shadow-neon-teal transition-all duration-300 hover:scale-[1.02] hover:bg-biosphere-600 dark:hover:bg-white active:scale-[0.98]',
+                  collapsed ? 'h-10 justify-center px-0' : 'h-11',
+                )}
+                size={collapsed ? 'icon' : 'default'}
+                title={collapsed ? undefined : "Start a new chat"}
+                aria-label="Start a new chat"
+              >
+                {collapsed ? <span className="sr-only">New Chat</span> : 'New Chat'}
+              </Button>
+            </SidebarTooltip>
           </div>
 
           <ScrollArea className="flex-1 w-full overflow-y-auto pr-1">
@@ -666,179 +692,181 @@ export default function AppLayout({ children }: AppLayoutProps) {
 
   return (
     <AppShellContext.Provider value={appShellValue}>
-      <div className="flex h-screen overflow-hidden bg-slate-100 dark:bg-space-950 transition-colors duration-500">
-        <aside
-          className={cn(
-            'hidden border-r border-black/5 dark:border-white/10 bg-slate-50/70 dark:bg-space-900/40 backdrop-blur-2xl transition-[width] duration-300 ease-in-out md:flex md:flex-col relative z-20',
-            sidebarCollapsed ? 'md:w-24' : 'md:w-72',
-          )}
-        >
-          <SidebarContent collapsed={sidebarCollapsed} />
-        </aside>
+      <TooltipProvider>
+        <div className="flex h-screen overflow-hidden bg-slate-100 dark:bg-space-950 transition-colors duration-500">
+          <aside
+            className={cn(
+              'hidden border-r border-black/5 dark:border-white/10 bg-slate-50/70 dark:bg-space-900/40 backdrop-blur-2xl transition-[width] duration-300 ease-in-out md:flex md:flex-col relative z-20',
+              sidebarCollapsed ? 'md:w-24' : 'md:w-72',
+            )}
+          >
+            <SidebarContent collapsed={sidebarCollapsed} />
+          </aside>
 
-        <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
-          <SheetContent side="left" className="w-80 max-w-full p-0">
-            <SidebarContent collapsed={false} />
-          </SheetContent>
-        </Sheet>
+          <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
+            <SheetContent side="left" className="w-80 max-w-full p-0">
+              <SidebarContent collapsed={false} />
+            </SheetContent>
+          </Sheet>
 
-        <div className="flex flex-1 flex-col overflow-hidden">
-          <main className="flex-1 overflow-auto">{children}</main>
-        </div>
+          <div className="flex flex-1 flex-col overflow-hidden">
+            <main className="flex-1 overflow-auto">{children}</main>
+          </div>
 
-        <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
-          <DialogContent className="max-w-md border-black/5 dark:border-white/10 bg-white/80 dark:bg-space-900/80 backdrop-blur-3xl shadow-[0_8px_30px_rgb(0,0,0,0.12)] dark:shadow-[0_8px_30px_rgba(0,0,0,0.6)] rounded-3xl p-6 sm:p-8">
-            <DialogHeader className="mb-2">
-              <DialogTitle className="text-2xl font-bold font-display text-slate-900 dark:text-white">Settings</DialogTitle>
-              <DialogDescription className="text-slate-500 dark:text-space-300">Preferences and account details.</DialogDescription>
-            </DialogHeader>
-            <div className="space-y-6">
-              <div className="space-y-3">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-space-400">Account</h3>
-                <div className="flex items-center gap-4 rounded-2xl border border-black/5 dark:border-white/5 bg-white/50 dark:bg-space-800/40 p-4 shadow-sm backdrop-blur-sm">
-                  <Avatar className="h-12 w-12 ring-2 ring-biosphere-500/20 shadow-inner">
-                    <AvatarImage src={avatarUrl} alt={userName} />
-                    <AvatarFallback className="bg-gradient-to-br from-biosphere-500 to-cosmic-500 text-white font-bold">{getInitials(userName)}</AvatarFallback>
-                  </Avatar>
-                  <div className="overflow-hidden">
-                    <div className="truncate font-bold text-slate-900 dark:text-white">{userName}</div>
-                    <div className="truncate text-sm font-medium text-slate-500 dark:text-space-300">{userEmail}</div>
+          <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
+            <DialogContent className="max-w-md border-black/5 dark:border-white/10 bg-white/80 dark:bg-space-900/80 backdrop-blur-3xl shadow-[0_8px_30px_rgb(0,0,0,0.12)] dark:shadow-[0_8px_30px_rgba(0,0,0,0.6)] rounded-3xl p-6 sm:p-8">
+              <DialogHeader className="mb-2">
+                <DialogTitle className="text-2xl font-bold font-display text-slate-900 dark:text-white">Settings</DialogTitle>
+                <DialogDescription className="text-slate-500 dark:text-space-300">Preferences and account details.</DialogDescription>
+              </DialogHeader>
+              <div className="space-y-6">
+                <div className="space-y-3">
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-space-400">Account</h3>
+                  <div className="flex items-center gap-4 rounded-2xl border border-black/5 dark:border-white/5 bg-white/50 dark:bg-space-800/40 p-4 shadow-sm backdrop-blur-sm">
+                    <Avatar className="h-12 w-12 ring-2 ring-biosphere-500/20 shadow-inner">
+                      <AvatarImage src={avatarUrl} alt={userName} />
+                      <AvatarFallback className="bg-gradient-to-br from-biosphere-500 to-cosmic-500 text-white font-bold">{getInitials(userName)}</AvatarFallback>
+                    </Avatar>
+                    <div className="overflow-hidden">
+                      <div className="truncate font-bold text-slate-900 dark:text-white">{userName}</div>
+                      <div className="truncate text-sm font-medium text-slate-500 dark:text-space-300">{userEmail}</div>
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              <div className="space-y-3">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-space-400">Appearance</h3>
-                <div className="flex items-center justify-between rounded-2xl border border-black/5 dark:border-white/5 bg-white/50 dark:bg-space-800/40 p-2 shadow-sm backdrop-blur-sm">
-                  <div className="flex w-full items-center gap-2 p-1 relative">
-                    {/* Animated background pill component simulating a segment control */}
-                    <div
-                      className={cn(
-                        "absolute inset-y-1 block w-[calc(50%-0.375rem)] rounded-xl bg-white dark:bg-space-700 shadow-sm transition-all duration-300 ease-out",
-                        theme === 'light' ? "left-1" : "left-[calc(50%+0.125rem)]"
-                      )}
-                    />
-
-                    <button
-                      onClick={() => { if (theme !== 'light') toggleTheme() }}
-                      className={cn(
-                        "relative z-10 flex flex-1 items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-bold transition-colors",
-                        theme === 'light' ? "text-slate-900" : "text-slate-500 hover:text-slate-700 dark:text-space-300 dark:hover:text-white"
-                      )}
-                    >
-                      <span className="text-lg leading-none">☀️</span> Light
-                    </button>
-                    <button
-                      onClick={() => { if (theme !== 'dark') toggleTheme() }}
-                      className={cn(
-                        "relative z-10 flex flex-1 items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-bold transition-colors",
-                        theme === 'dark' ? "text-white" : "text-slate-500 hover:text-slate-700 dark:text-space-300 dark:hover:text-white"
-                      )}
-                    >
-                      <span className="text-lg leading-none">🌙</span> Dark
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
-
-        <Dialog open={onboardingOpen} onOpenChange={() => { }}>
-          <DialogContent className="max-w-4xl border-none bg-transparent p-0 shadow-none">
-            <div className="grid overflow-hidden rounded-3xl bg-scheme-surface text-scheme-text shadow-xl transition-theme md:grid-cols-[1.15fr_1fr]">
-              <div className="flex flex-col justify-between p-8 md:p-10">
-                <div>
-                  <div className="mb-4 inline-flex items-center rounded-full bg-biosphere-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-biosphere-500">
-                    {ONBOARDING_SLIDES[onboardingStep].tag}
-                  </div>
-                  <h2 className="heading-h3 mb-4 font-bold md:mb-5">
-                    {ONBOARDING_SLIDES[onboardingStep].title}
-                  </h2>
-                  <p className="text-scheme-muted-text mb-6 md:mb-8">
-                    {ONBOARDING_SLIDES[onboardingStep].description}
-                  </p>
-                  <ul className="space-y-3 text-sm text-scheme-text">
-                    {ONBOARDING_SLIDES[onboardingStep].points.map((point) => (
-                      <li key={point} className="flex items-center gap-3 rounded-2xl bg-scheme-muted/60 px-4 py-3">
-                        <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-biosphere-500/20 text-biosphere-500">
-                          •
-                        </span>
-                        <span className="leading-snug">{point}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-                <div className="mt-8 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    {ONBOARDING_SLIDES.map((slide, index) => (
-                      <span
-                        key={slide.id}
+                <div className="space-y-3">
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-space-400">Appearance</h3>
+                  <div className="flex items-center justify-between rounded-2xl border border-black/5 dark:border-white/5 bg-white/50 dark:bg-space-800/40 p-2 shadow-sm backdrop-blur-sm">
+                    <div className="flex w-full items-center gap-2 p-1 relative">
+                      {/* Animated background pill component simulating a segment control */}
+                      <div
                         className={cn(
-                          'h-2.5 w-2.5 rounded-full transition-all duration-300',
-                          index === onboardingStep ? 'w-8 bg-biosphere-500' : 'bg-scheme-muted/70',
+                          "absolute inset-y-1 block w-[calc(50%-0.375rem)] rounded-xl bg-white dark:bg-space-700 shadow-sm transition-all duration-300 ease-out",
+                          theme === 'light' ? "left-1" : "left-[calc(50%+0.125rem)]"
                         )}
                       />
-                    ))}
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={handleOnboardingBack}
-                      disabled={onboardingStep === 0 || onboardingSaving}
-                    >
-                      Back
-                    </Button>
-                    <Button
-                      variant="default"
-                      size="sm"
-                      onClick={handleOnboardingAdvance}
-                      disabled={onboardingSaving}
-                    >
-                      {onboardingStep === ONBOARDING_SLIDES.length - 1 ? 'Enter BioQuery' : 'Next'}
-                    </Button>
-                  </div>
-                </div>
-              </div>
-              <div
-                className={cn(
-                  'relative flex min-h-[320px] flex-col items-center justify-center gap-6 p-10 text-center text-white',
-                  'bg-gradient-to-br',
-                  ONBOARDING_SLIDES[onboardingStep].gradient,
-                )}
-              >
-                <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(255,255,255,0.15),transparent_60%)]" aria-hidden="true" />
-                <div className="relative flex h-28 w-28 items-center justify-center rounded-3xl bg-white/10 text-5xl shadow-lg backdrop-blur">
-                  {ONBOARDING_SLIDES[onboardingStep].icon}
-                </div>
-                <div className="relative space-y-2">
-                  <p className="text-sm font-semibold uppercase tracking-wide text-white/80">
-                    Guided Tour
-                  </p>
-                  <p className="text-lg font-medium leading-snug text-white">
-                    Slide {onboardingStep + 1} of {ONBOARDING_SLIDES.length}
-                  </p>
-                </div>
-                <div className="relative grid w-full grid-cols-3 gap-3 text-left text-xs text-white/80">
-                  <div className="rounded-2xl bg-white/10 p-4 backdrop-blur">
-                    <p className="font-semibold">Search brilliance</p>
-                    <p className="mt-1 leading-snug text-white/70">Grounded NASA publications every time you ask a question.</p>
-                  </div>
-                  <div className="rounded-2xl bg-white/10 p-4 backdrop-blur">
-                    <p className="font-semibold">Visual insights</p>
-                    <p className="mt-1 leading-snug text-white/70">Turn summaries into charts, graphs, and storyboards.</p>
-                  </div>
-                  <div className="rounded-2xl bg-white/10 p-4 backdrop-blur">
-                    <p className="font-semibold">Team ready</p>
-                    <p className="mt-1 leading-snug text-white/70">Share discoveries, star chats, and stay in sync.</p>
+
+                      <button
+                        onClick={() => { if (theme !== 'light') toggleTheme() }}
+                        className={cn(
+                          "relative z-10 flex flex-1 items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-bold transition-colors",
+                          theme === 'light' ? "text-slate-900" : "text-slate-500 hover:text-slate-700 dark:text-space-300 dark:hover:text-white"
+                        )}
+                      >
+                        <span className="text-lg leading-none">☀️</span> Light
+                      </button>
+                      <button
+                        onClick={() => { if (theme !== 'dark') toggleTheme() }}
+                        className={cn(
+                          "relative z-10 flex flex-1 items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-bold transition-colors",
+                          theme === 'dark' ? "text-white" : "text-slate-500 hover:text-slate-700 dark:text-space-300 dark:hover:text-white"
+                        )}
+                      >
+                        <span className="text-lg leading-none">🌙</span> Dark
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-          </DialogContent>
-        </Dialog>
-      </div>
+            </DialogContent>
+          </Dialog>
+
+          <Dialog open={onboardingOpen} onOpenChange={() => { }}>
+            <DialogContent className="max-w-4xl border-none bg-transparent p-0 shadow-none">
+              <div className="grid overflow-hidden rounded-3xl bg-scheme-surface text-scheme-text shadow-xl transition-theme md:grid-cols-[1.15fr_1fr]">
+                <div className="flex flex-col justify-between p-8 md:p-10">
+                  <div>
+                    <div className="mb-4 inline-flex items-center rounded-full bg-biosphere-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-biosphere-500">
+                      {ONBOARDING_SLIDES[onboardingStep].tag}
+                    </div>
+                    <h2 className="heading-h3 mb-4 font-bold md:mb-5">
+                      {ONBOARDING_SLIDES[onboardingStep].title}
+                    </h2>
+                    <p className="text-scheme-muted-text mb-6 md:mb-8">
+                      {ONBOARDING_SLIDES[onboardingStep].description}
+                    </p>
+                    <ul className="space-y-3 text-sm text-scheme-text">
+                      {ONBOARDING_SLIDES[onboardingStep].points.map((point) => (
+                        <li key={point} className="flex items-center gap-3 rounded-2xl bg-scheme-muted/60 px-4 py-3">
+                          <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-biosphere-500/20 text-biosphere-500">
+                            •
+                          </span>
+                          <span className="leading-snug">{point}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                  <div className="mt-8 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      {ONBOARDING_SLIDES.map((slide, index) => (
+                        <span
+                          key={slide.id}
+                          className={cn(
+                            'h-2.5 w-2.5 rounded-full transition-all duration-300',
+                            index === onboardingStep ? 'w-8 bg-biosphere-500' : 'bg-scheme-muted/70',
+                          )}
+                        />
+                      ))}
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={handleOnboardingBack}
+                        disabled={onboardingStep === 0 || onboardingSaving}
+                      >
+                        Back
+                      </Button>
+                      <Button
+                        variant="default"
+                        size="sm"
+                        onClick={handleOnboardingAdvance}
+                        disabled={onboardingSaving}
+                      >
+                        {onboardingStep === ONBOARDING_SLIDES.length - 1 ? 'Enter BioQuery' : 'Next'}
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+                <div
+                  className={cn(
+                    'relative flex min-h-[320px] flex-col items-center justify-center gap-6 p-10 text-center text-white',
+                    'bg-gradient-to-br',
+                    ONBOARDING_SLIDES[onboardingStep].gradient,
+                  )}
+                >
+                  <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(255,255,255,0.15),transparent_60%)]" aria-hidden="true" />
+                  <div className="relative flex h-28 w-28 items-center justify-center rounded-3xl bg-white/10 text-5xl shadow-lg backdrop-blur">
+                    {ONBOARDING_SLIDES[onboardingStep].icon}
+                  </div>
+                  <div className="relative space-y-2">
+                    <p className="text-sm font-semibold uppercase tracking-wide text-white/80">
+                      Guided Tour
+                    </p>
+                    <p className="text-lg font-medium leading-snug text-white">
+                      Slide {onboardingStep + 1} of {ONBOARDING_SLIDES.length}
+                    </p>
+                  </div>
+                  <div className="relative grid w-full grid-cols-3 gap-3 text-left text-xs text-white/80">
+                    <div className="rounded-2xl bg-white/10 p-4 backdrop-blur">
+                      <p className="font-semibold">Search brilliance</p>
+                      <p className="mt-1 leading-snug text-white/70">Grounded NASA publications every time you ask a question.</p>
+                    </div>
+                    <div className="rounded-2xl bg-white/10 p-4 backdrop-blur">
+                      <p className="font-semibold">Visual insights</p>
+                      <p className="mt-1 leading-snug text-white/70">Turn summaries into charts, graphs, and storyboards.</p>
+                    </div>
+                    <div className="rounded-2xl bg-white/10 p-4 backdrop-blur">
+                      <p className="font-semibold">Team ready</p>
+                      <p className="mt-1 leading-snug text-white/70">Share discoveries, star chats, and stay in sync.</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
+        </div>
+      </TooltipProvider>
     </AppShellContext.Provider>
   )
 }

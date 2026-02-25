@@ -9,6 +9,7 @@ import {
 	HiOutlineQueueList,
 	HiOutlineSparkles,
 	HiOutlineXCircle,
+	HiMiniChevronDown,
 } from 'react-icons/hi2'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -17,6 +18,7 @@ import supabase from '@/lib/supabase-client'
 import type { ChatMessage } from '@/contexts/chat-context-types'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { cn } from '@/lib/utils'
 
 const openExternalLink = (url?: string | null) => {
 
@@ -1058,20 +1060,20 @@ export function ToolCallResults({ message, toolId }: ToolCallResultsProps) {
 		const disabled = !canPersist || isSaving || isSaved
 
 		return (
-			<div className="mt-3 rounded-2xl border border-biosphere-500/25 bg-biosphere-500/5 p-4 backdrop-blur">
-				<div className="flex items-start justify-between gap-4">
-					<div className="flex items-center gap-3">
-						<span className="flex h-10 w-10 items-center justify-center rounded-xl bg-biosphere-500/15 text-biosphere-300">
-							<Icon className="h-5 w-5" />
+			<div className="mt-3 relative overflow-hidden rounded-2xl border border-biosphere-500/20 dark:border-biosphere-500/10 bg-gradient-to-br from-white/80 via-biosphere-50/30 to-white/40 dark:from-space-800/80 dark:via-biosphere-900/10 dark:to-space-900/60 p-5 shadow-sm backdrop-blur-xl transition-all hover:shadow-md group hover:border-biosphere-500/30 dark:hover:border-biosphere-500/20">
+				<div className="flex items-start justify-between gap-4 relative z-10">
+					<div className="flex items-center gap-3.5">
+						<span className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-biosphere-500/20 to-biosphere-600/5 text-biosphere-600 dark:text-biosphere-300 ring-1 ring-biosphere-500/30 shadow-inner group-hover:ring-biosphere-500/50 transition-all">
+							<Icon className="h-5 w-5 drop-shadow-[0_0_8px_rgba(0,231,179,0.3)] group-hover:scale-110 transition-transform" />
 						</span>
-						<div className="space-y-1">
-							<p className="text-sm font-semibold text-scheme-text">{artifact.title ?? 'Generated artifact'}</p>
-							<p className="text-xs text-scheme-muted-text">
+						<div className="space-y-0.5">
+							<p className="text-[15px] font-bold text-slate-800 dark:text-space-200 tracking-tight">{artifact.title ?? 'Generated artifact'}</p>
+							<p className="text-[0.7rem] font-semibold text-slate-400 dark:text-space-400/80 uppercase tracking-widest">
 								{displayType.replace('_', ' ')}
 							</p>
 						</div>
 					</div>
-					{metricsLabel ? <span className="text-xs text-scheme-muted-text">{metricsLabel}</span> : null}
+					{metricsLabel ? <span className="text-[0.7rem] font-semibold text-slate-500 dark:text-space-400 px-2.5 py-1 rounded-full bg-black/5 dark:bg-white/5">{metricsLabel}</span> : null}
 				</div>
 				{artifact.summary ? (
 					<p className="mt-3 text-sm leading-relaxed text-scheme-text/85">{artifact.summary}</p>
@@ -1112,20 +1114,20 @@ export function ToolCallResults({ message, toolId }: ToolCallResultsProps) {
 		const isLoadingDetails = Boolean(loadingArtifacts[artifact.id])
 		const displayType = typeof artifact.type === 'string' && artifact.type.length > 0 ? artifact.type : 'timeline'
 		return (
-			<div className="mt-3 rounded-2xl border border-biosphere-500/25 bg-biosphere-500/5 p-4 backdrop-blur">
-				<div className="flex items-start justify-between gap-4">
-					<div className="flex items-center gap-3">
-						<span className="flex h-10 w-10 items-center justify-center rounded-xl bg-biosphere-500/15 text-biosphere-300">
-							<HiOutlineQueueList className="h-5 w-5" />
+			<div className="mt-3 relative overflow-hidden rounded-2xl border border-biosphere-500/20 dark:border-biosphere-500/10 bg-gradient-to-br from-white/80 via-amber-50/20 to-white/40 dark:from-space-800/80 dark:via-amber-900/10 dark:to-space-900/60 p-5 shadow-sm backdrop-blur-xl transition-all hover:shadow-md group hover:border-amber-500/30 dark:hover:border-amber-500/20">
+				<div className="flex items-start justify-between gap-4 relative z-10">
+					<div className="flex items-center gap-3.5">
+						<span className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-amber-500/20 to-amber-600/5 text-amber-600 dark:text-amber-400 ring-1 ring-amber-500/30 shadow-inner group-hover:ring-amber-500/50 transition-all">
+							<HiOutlineQueueList className="h-5 w-5 drop-shadow-[0_0_8px_rgba(245,158,11,0.3)] group-hover:scale-110 transition-transform" />
 						</span>
-						<div className="space-y-1">
-							<p className="text-sm font-semibold text-scheme-text">{timelineTitle}</p>
-							<p className="text-xs text-scheme-muted-text">
+						<div className="space-y-0.5">
+							<p className="text-[15px] font-bold text-slate-800 dark:text-space-200 tracking-tight">{timelineTitle}</p>
+							<p className="text-[0.7rem] font-semibold text-slate-400 dark:text-space-400/80 uppercase tracking-widest">
 								{displayType.replace('_', ' ')}
 							</p>
 						</div>
 					</div>
-					{metricsLabel ? <span className="text-xs text-scheme-muted-text">{metricsLabel}</span> : null}
+					{metricsLabel ? <span className="text-[0.7rem] font-semibold text-slate-500 dark:text-space-400 px-2.5 py-1 rounded-full bg-black/5 dark:bg-white/5">{metricsLabel}</span> : null}
 				</div>
 				{firstSection ? (
 					<div className="mt-3 rounded-xl border border-biosphere-500/20 bg-space-950/50 p-3">
@@ -1187,20 +1189,20 @@ export function ToolCallResults({ message, toolId }: ToolCallResultsProps) {
 		const chartTypeLabel = chartData?.chartType ?? displayType.replace('_', ' ')
 		const isLoadingDetails = Boolean(loadingArtifacts[artifact.id])
 		return (
-			<div className="mt-3 rounded-2xl border border-biosphere-500/25 bg-biosphere-500/5 p-4 backdrop-blur">
-				<div className="flex items-start justify-between gap-4">
-					<div className="flex items-center gap-3">
-						<span className="flex h-10 w-10 items-center justify-center rounded-xl bg-biosphere-500/15 text-biosphere-300">
-							<HiOutlineChartBarSquare className="h-5 w-5" />
+			<div className="mt-3 relative overflow-hidden rounded-2xl border border-biosphere-500/20 dark:border-biosphere-500/10 bg-gradient-to-br from-white/80 via-blue-50/30 to-white/40 dark:from-space-800/80 dark:via-blue-900/10 dark:to-space-900/60 p-5 shadow-sm backdrop-blur-xl transition-all hover:shadow-md group hover:border-blue-500/30 dark:hover:border-blue-500/20">
+				<div className="flex items-start justify-between gap-4 relative z-10">
+					<div className="flex items-center gap-3.5">
+						<span className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500/20 to-blue-600/5 text-blue-600 dark:text-blue-400 ring-1 ring-blue-500/30 shadow-inner group-hover:ring-blue-500/50 transition-all">
+							<HiOutlineChartBarSquare className="h-5 w-5 drop-shadow-[0_0_8px_rgba(59,130,246,0.3)] group-hover:scale-110 transition-transform" />
 						</span>
-						<div className="space-y-1">
-							<p className="text-sm font-semibold text-scheme-text">{chartTitle}</p>
-							<p className="text-xs text-scheme-muted-text">
+						<div className="space-y-0.5">
+							<p className="text-[15px] font-bold text-slate-800 dark:text-space-200 tracking-tight">{chartTitle}</p>
+							<p className="text-[0.7rem] font-semibold text-slate-400 dark:text-space-400/80 uppercase tracking-widest">
 								{chartTypeLabel}
 							</p>
 						</div>
 					</div>
-					{metricsLabel ? <span className="text-xs text-scheme-muted-text">{metricsLabel}</span> : null}
+					{metricsLabel ? <span className="text-[0.7rem] font-semibold text-slate-500 dark:text-space-400 px-2.5 py-1 rounded-full bg-black/5 dark:bg-white/5">{metricsLabel}</span> : null}
 				</div>
 				{previewPoints.length ? (
 					<div className="mt-3 space-y-2 text-xs text-scheme-muted-text/90">
@@ -1261,20 +1263,20 @@ export function ToolCallResults({ message, toolId }: ToolCallResultsProps) {
 		const graphContext = graphData?.context ?? artifact.summary ?? null
 		const isLoadingDetails = Boolean(loadingArtifacts[artifact.id])
 		return (
-			<div className="mt-3 rounded-2xl border border-biosphere-500/25 bg-biosphere-500/5 p-4 backdrop-blur">
-				<div className="flex items-start justify-between gap-4">
-					<div className="flex items-center gap-3">
-						<span className="flex h-10 w-10 items-center justify-center rounded-xl bg-biosphere-500/15 text-biosphere-300">
-							<HiOutlineGlobeAlt className="h-5 w-5" />
+			<div className="mt-3 relative overflow-hidden rounded-2xl border border-biosphere-500/20 dark:border-biosphere-500/10 bg-gradient-to-br from-white/80 via-purple-50/20 to-white/40 dark:from-space-800/80 dark:via-purple-900/10 dark:to-space-900/60 p-5 shadow-sm backdrop-blur-xl transition-all hover:shadow-md group hover:border-purple-500/30 dark:hover:border-purple-500/20">
+				<div className="flex items-start justify-between gap-4 relative z-10">
+					<div className="flex items-center gap-3.5">
+						<span className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-purple-500/20 to-purple-600/5 text-purple-600 dark:text-purple-400 ring-1 ring-purple-500/30 shadow-inner group-hover:ring-purple-500/50 transition-all">
+							<HiOutlineGlobeAlt className="h-5 w-5 drop-shadow-[0_0_8px_rgba(168,85,247,0.3)] group-hover:scale-110 transition-transform" />
 						</span>
-						<div className="space-y-1">
-							<p className="text-sm font-semibold text-scheme-text">{artifact.title ?? 'Knowledge graph'}</p>
-							<p className="text-xs text-scheme-muted-text">
+						<div className="space-y-0.5">
+							<p className="text-[15px] font-bold text-slate-800 dark:text-space-200 tracking-tight">{artifact.title ?? 'Knowledge graph'}</p>
+							<p className="text-[0.7rem] font-semibold text-slate-400 dark:text-space-400/80 uppercase tracking-widest">
 								{nodeCount} nodes · {edgeCount} edges
 							</p>
 						</div>
 					</div>
-					{metricsLabel ? <span className="text-xs text-scheme-muted-text">{metricsLabel}</span> : null}
+					{metricsLabel ? <span className="text-[0.7rem] font-semibold text-slate-500 dark:text-space-400 px-2.5 py-1 rounded-full bg-black/5 dark:bg-white/5">{metricsLabel}</span> : null}
 				</div>
 				{nodePreview.length ? (
 					<div className="mt-3 grid gap-2 text-xs text-scheme-muted-text/90">
@@ -1347,15 +1349,15 @@ export function ToolCallResults({ message, toolId }: ToolCallResultsProps) {
 		const isLoadingDoc = Boolean(loadingDocuments[document.id])
 
 		return (
-			<div className="mt-3 rounded-2xl border border-scheme-border-subtle bg-scheme-surface/90 p-4 shadow-sm">
-				<div className="flex items-start gap-3">
-					<span className="flex h-10 w-10 items-center justify-center rounded-xl bg-scheme-muted/20 text-scheme-muted-text">
-						<HiOutlineDocumentText className="h-5 w-5" />
+			<div className="mt-3 relative overflow-hidden rounded-2xl border border-black/5 dark:border-white/5 bg-gradient-to-br from-white/80 via-slate-50/50 to-white/40 dark:from-space-800/80 dark:via-space-800/50 dark:to-space-900/60 p-5 shadow-sm backdrop-blur-xl transition-all hover:shadow-md group hover:border-black/10 dark:hover:border-white/10">
+				<div className="flex items-start gap-4 relative z-10">
+					<span className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-slate-200/50 to-slate-300/20 dark:from-space-700/50 dark:to-space-700/20 text-slate-500 dark:text-space-300 ring-1 ring-black/5 dark:ring-white/10 shadow-inner group-hover:ring-black/10 dark:group-hover:ring-white/20 transition-all">
+						<HiOutlineDocumentText className="h-5 w-5 drop-shadow-[0_0_8px_rgba(0,0,0,0.1)] dark:drop-shadow-[0_0_8px_rgba(255,255,255,0.1)] group-hover:scale-110 transition-transform" />
 					</span>
-					<div className="flex-1 space-y-2">
-						<div>
-							<p className="text-sm font-semibold text-scheme-text">{document.title ?? 'Generated document'}</p>
-							<p className="text-xs text-scheme-muted-text">
+					<div className="flex-1 space-y-1.5">
+						<div className="space-y-0.5">
+							<p className="text-[15px] font-bold text-slate-800 dark:text-space-200 tracking-tight">{document.title ?? 'Generated document'}</p>
+							<p className="text-[0.7rem] font-semibold text-slate-400 dark:text-space-400/80 uppercase tracking-widest">
 								{document.documentType ?? 'document'}
 							</p>
 						</div>
@@ -1466,10 +1468,10 @@ export function ToolCallResults({ message, toolId }: ToolCallResultsProps) {
 						<div className="space-y-8">
 							{documentModal.imageLink ? (
 								<div className="group relative overflow-hidden rounded-2xl border border-biosphere-500/25 shadow-2xl transition-all hover:border-biosphere-500/40 hover:shadow-biosphere-500/10">
-									<img 
-										src={documentModal.imageLink} 
-										alt={documentModal.title ?? 'Document illustration'} 
-										className="w-full transition-transform duration-300 group-hover:scale-[1.02]" 
+									<img
+										src={documentModal.imageLink}
+										alt={documentModal.title ?? 'Document illustration'}
+										className="w-full transition-transform duration-300 group-hover:scale-[1.02]"
 									/>
 									<div className="absolute inset-0 bg-gradient-to-t from-space-900/30 to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
 								</div>
@@ -1504,99 +1506,102 @@ export function ToolCallResults({ message, toolId }: ToolCallResultsProps) {
 			}}
 		>
 			{timelineModal ? (
-				<DialogContent className="max-w-6xl max-h-[92vh] overflow-hidden">
-					<DialogHeader className="pr-8">
-						<DialogTitle className="text-2xl font-bold">{timelineModal.data.title}</DialogTitle>
-						<DialogDescription className="flex flex-wrap items-center gap-2 text-sm">
-							<span className="rounded-full bg-biosphere-500/15 px-3 py-1 text-xs font-medium uppercase tracking-wide text-biosphere-200">
-								{timelineModal.data.sections.length} section{timelineModal.data.sections.length === 1 ? '' : 's'}
-							</span>
-							{timelineModal.data.tags.length ? (
-								<>
-									{timelineModal.data.tags.slice(0, 3).map((tag) => (
-										<span key={tag} className="rounded-full border border-biosphere-500/30 bg-biosphere-500/5 px-3 py-1 text-xs text-biosphere-300">
-											{tag}
-										</span>
-									))}
-								</>
-							) : null}
-						</DialogDescription>
-					</DialogHeader>
-					<div className="mt-6 flex flex-col gap-4">
-						<ScrollArea className="max-h-16">
-							<div className="flex items-center gap-2 pb-2">
-								{timelineModal.data.sections.map((section, index) => {
-									const isActive = index === timelineIndex
-									return (
-										<button
-											type="button"
-											key={`${section.title}-${index}`}
-											onClick={() => setTimelineIndex(index)}
-											className={`flex-shrink-0 rounded-full border px-4 py-2 text-sm font-medium transition-all ${
-												isActive
-													? 'border-biosphere-500 bg-biosphere-500/25 text-biosphere-100 shadow-lg shadow-biosphere-500/20'
-													: 'border-scheme-border-subtle text-scheme-muted-text hover:border-biosphere-500/60 hover:bg-biosphere-500/10 hover:text-biosphere-100'
-											}`}
-										>
-											{index + 1}
-										</button>
-									)
-								})}
-							</div>
-						</ScrollArea>
-						{(() => {
-							const sections = timelineModal.data.sections
-							const safeIndex = Math.min(timelineIndex, sections.length - 1)
-							const activeSection = sections[safeIndex]
-							if (!activeSection) {
-								return <p className="text-sm text-scheme-muted-text">No sections available.</p>
-							}
-							return (
-								<ScrollArea className="h-[calc(92vh-260px)] max-h-[calc(92vh-260px)] rounded-2xl border border-biosphere-500/20 bg-gradient-to-br from-scheme-surface/95 to-scheme-surface/80 shadow-xl">
-									<div className="space-y-6 p-8">
-										<div className="flex items-center gap-4">
-											<span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-biosphere-500/25 text-base font-bold text-biosphere-200 shadow-lg shadow-biosphere-500/20">
-												{safeIndex + 1}
+				<DialogContent className="max-w-6xl max-h-[92vh] overflow-hidden border border-black/5 dark:border-white/10 bg-white/90 dark:bg-space-950/80 backdrop-blur-3xl shadow-2xl p-0 sm:p-0">
+					<div className="p-8">
+						<DialogHeader className="pr-8 space-y-2">
+							<DialogTitle className="text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white drop-shadow-sm">{timelineModal.data.title}</DialogTitle>
+							<DialogDescription className="flex flex-wrap items-center gap-2 text-sm pt-2">
+								<span className="rounded-full bg-biosphere-500/15 ring-1 ring-biosphere-500/30 px-3.5 py-1 text-xs font-bold uppercase tracking-widest text-biosphere-600 dark:text-biosphere-400">
+									{timelineModal.data.sections.length} section{timelineModal.data.sections.length === 1 ? '' : 's'}
+								</span>
+								{timelineModal.data.tags.length ? (
+									<>
+										{timelineModal.data.tags.slice(0, 3).map((tag) => (
+											<span key={tag} className="rounded-full border border-black/5 dark:border-white/10 bg-slate-100 dark:bg-space-800/80 px-3.5 py-1 text-xs font-semibold text-slate-600 dark:text-space-300">
+												{tag}
 											</span>
-											<h3 className="text-xl font-bold text-scheme-text">{activeSection.title}</h3>
-										</div>
-										<p className="text-base leading-relaxed text-scheme-text/95">{activeSection.description}</p>
-										{activeSection.imageLink ? (
-											<div className="overflow-hidden rounded-2xl border border-biosphere-500/25 shadow-2xl">
-												<img 
-													src={activeSection.imageLink} 
-													alt={activeSection.title} 
-													className="w-full h-auto object-contain" 
-												/>
-											</div>
-										) : null}
-									</div>
-								</ScrollArea>
-							)
-						})()}
-						<div className="flex items-center justify-between">
-							<Button
-								type="button"
-								size="sm"
-								variant="outline"
-								onClick={() => setTimelineIndex((prev) => Math.max(prev - 1, 0))}
-								disabled={timelineIndex === 0}
-							>
-								Previous section
-							</Button>
-							<Button
-								type="button"
-								size="sm"
-								variant="outline"
-								onClick={() =>
-									setTimelineIndex((prev) =>
-										Math.min(prev + 1, Math.max(timelineModal.data.sections.length - 1, 0)),
-									)
+										))}
+									</>
+								) : null}
+							</DialogDescription>
+						</DialogHeader>
+						<div className="mt-8 flex flex-col gap-6">
+							<ScrollArea className="max-h-20 mask-image-fade">
+								<div className="flex flex-wrap items-center gap-3 pb-4">
+									{timelineModal.data.sections.map((section, index) => {
+										const isActive = index === timelineIndex
+										return (
+											<button
+												type="button"
+												key={`${section.title}-${index}`}
+												onClick={() => setTimelineIndex(index)}
+												className={`flex-shrink-0 rounded-full border px-5 py-2 text-sm font-bold transition-all ${isActive
+													? 'border-biosphere-500/50 bg-gradient-to-br from-biosphere-500 to-biosphere-600 text-white shadow-[0_0_15px_rgba(0,231,179,0.3)] ring-2 ring-biosphere-500/20 ring-offset-2 ring-offset-white dark:ring-offset-space-950 scale-105'
+													: 'border-black/5 dark:border-white/10 bg-slate-100 dark:bg-space-800 text-slate-500 dark:text-space-400 hover:border-biosphere-500/30 hover:bg-biosphere-50 dark:hover:bg-biosphere-500/10 hover:text-biosphere-600 dark:hover:text-biosphere-400'
+													}`}
+											>
+												{index + 1}. {section.title.length > 20 ? section.title.substring(0, 20) + '...' : section.title}
+											</button>
+										)
+									})}
+								</div>
+							</ScrollArea>
+							{(() => {
+								const sections = timelineModal.data.sections
+								const safeIndex = Math.min(timelineIndex, sections.length - 1)
+								const activeSection = sections[safeIndex]
+								if (!activeSection) {
+									return <p className="text-sm text-scheme-muted-text">No sections available.</p>
 								}
-								disabled={timelineIndex >= timelineModal.data.sections.length - 1}
-							>
-								Next section
-							</Button>
+								return (
+									<ScrollArea className="h-[calc(92vh-320px)] max-h-[calc(92vh-320px)] rounded-3xl border border-black/5 dark:border-white/10 bg-slate-50/80 dark:bg-space-900/40 shadow-inner backdrop-blur-md">
+										<div className="space-y-8 p-10">
+											<div className="flex items-center gap-5">
+												<span className="flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-biosphere-500 to-biosphere-600 text-xl font-extrabold text-white shadow-[0_0_20px_rgba(0,231,179,0.3)] ring-1 ring-white/20">
+													{safeIndex + 1}
+												</span>
+												<h3 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-slate-900 to-slate-600 dark:from-white dark:to-space-300 drop-shadow-sm leading-tight">{activeSection.title}</h3>
+											</div>
+											<p className="text-[17px] leading-relaxed text-slate-700 dark:text-space-200">{activeSection.description}</p>
+											{activeSection.imageLink ? (
+												<div className="overflow-hidden rounded-3xl border border-black/5 dark:border-white/10 shadow-[0_8px_30px_rgb(0,0,0,0.12)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.6)] group">
+													<img
+														src={activeSection.imageLink}
+														alt={activeSection.title}
+														className="w-full h-auto object-cover max-h-[500px] transition-transform duration-700 group-hover:scale-[1.03]"
+													/>
+												</div>
+											) : null}
+										</div>
+									</ScrollArea>
+								)
+							})()}
+							<div className="flex items-center justify-between pt-2">
+								<Button
+									type="button"
+									size="sm"
+									variant="outline"
+									onClick={() => setTimelineIndex((prev) => Math.max(prev - 1, 0))}
+									disabled={timelineIndex === 0}
+									className="rounded-full shadow-sm hover:bg-slate-100 dark:hover:bg-space-800"
+								>
+									Previous section
+								</Button>
+								<Button
+									type="button"
+									size="sm"
+									variant="outline"
+									onClick={() =>
+										setTimelineIndex((prev) =>
+											Math.min(prev + 1, Math.max(timelineModal.data.sections.length - 1, 0)),
+										)
+									}
+									disabled={timelineIndex >= timelineModal.data.sections.length - 1}
+									className="rounded-full shadow-sm hover:bg-slate-100 dark:hover:bg-space-800"
+								>
+									Next section
+								</Button>
+							</div>
 						</div>
 					</div>
 				</DialogContent>
@@ -1611,89 +1616,92 @@ export function ToolCallResults({ message, toolId }: ToolCallResultsProps) {
 			}
 		}}>
 			{visualModal ? (
-				<DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden">
-					<DialogHeader>
-						<DialogTitle className="text-xl font-bold">{visualModal.data.title}</DialogTitle>
-						<DialogDescription className="text-sm">
-							{visualModal.data.chartType} • {visualModal.data.dataPoints.length} data point
-							{visualModal.data.dataPoints.length === 1 ? '' : 's'}
-							{visualModal.data.tags.length ? (
-								<span className="ml-3">
-									{visualModal.data.tags.slice(0, 3).map((tag) => (
-										<span key={tag} className="ml-1 rounded-full bg-biosphere-500/10 px-2 py-0.5 text-xs text-biosphere-300">
-											{tag}
-										</span>
-									))}
+				<DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden border border-black/5 dark:border-white/10 bg-white/90 dark:bg-space-950/80 backdrop-blur-3xl shadow-2xl p-0 sm:p-0">
+					<div className="p-8">
+						<DialogHeader className="pr-8 space-y-2">
+							<DialogTitle className="text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white drop-shadow-sm">{visualModal.data.title}</DialogTitle>
+							<DialogDescription className="flex flex-wrap items-center gap-2 text-sm pt-2">
+								<span className="rounded-full bg-blue-500/15 ring-1 ring-blue-500/30 px-3.5 py-1 text-xs font-bold uppercase tracking-widest text-blue-600 dark:text-blue-400">
+									{visualModal.data.chartType} • {visualModal.data.dataPoints.length} data point{visualModal.data.dataPoints.length === 1 ? '' : 's'}
 								</span>
-							) : null}
-						</DialogDescription>
-					</DialogHeader>
-					<ScrollArea className="mt-6 max-h-[75vh] pr-4">
-					<div className="space-y-6">
-						{(() => {
-							const { chartType, dataPoints } = visualModal.data
-							const normalizedType = chartType.toLowerCase()
-							if (normalizedType.includes('pie')) {
-								const total = dataPoints.reduce((sum, point) => sum + Math.max(point.value, 0), 0)
-								let current = 0
-								const segments = dataPoints.map((point, index) => {
-									const value = Math.max(point.value, 0)
-									const start = total > 0 ? (current / total) * 360 : 0
-									current += value
-									const end = total > 0 ? (current / total) * 360 : start
-									const color = CHART_COLORS[index % CHART_COLORS.length]
-									return `${color} ${start}deg ${end}deg`
-								})
-								const pieStyle = total
-									? { background: `conic-gradient(${segments.join(', ')})` }
-									: {
-											background:
-												'linear-gradient(135deg, rgba(96,165,250,0.45), rgba(14,165,233,0.25))',
-										}
-								return (
-									<div className="flex flex-col items-center gap-4">
-										<div className="h-56 w-56 rounded-full border border-scheme-border-subtle/40" style={pieStyle} />
-										<ul className="w-full space-y-2 text-xs text-scheme-muted-text/85">
-											{dataPoints.map((point, index) => (
-												<li key={point.label} className="flex items-center justify-between gap-3 rounded-lg border border-scheme-border-subtle/60 bg-scheme-surface/80 px-3 py-2">
-													<span className="flex items-center gap-2">
-														<span
-															className="inline-block h-2 w-2 rounded-full"
-															style={{ backgroundColor: CHART_COLORS[index % CHART_COLORS.length] }}
-														/>
-														{point.label}
-													</span>
-													<span>{point.value}</span>
-												</li>
+								{visualModal.data.tags.length ? (
+									<>
+										{visualModal.data.tags.slice(0, 3).map((tag) => (
+											<span key={tag} className="rounded-full border border-black/5 dark:border-white/10 bg-slate-100 dark:bg-space-800/80 px-3.5 py-1 text-xs font-semibold text-slate-600 dark:text-space-300">
+												{tag}
+											</span>
 										))}
-										</ul>
-									</div>
-								)
-							}
-							const max = dataPoints.reduce((acc, point) => Math.max(acc, Math.abs(point.value)), 0)
-							return (
-								<div className="space-y-3">
-									{dataPoints.map((point, index) => {
-										const proportion = max > 0 ? Math.abs(point.value) / max : 0
-										const width = Math.max(proportion * 100, 4)
-										const color = CHART_COLORS[index % CHART_COLORS.length]
+									</>
+								) : null}
+							</DialogDescription>
+						</DialogHeader>
+						<ScrollArea className="mt-8 max-h-[70vh] pr-4 mask-image-fade">
+							<div className="space-y-6">
+								{(() => {
+									const { chartType, dataPoints } = visualModal.data
+									const normalizedType = chartType.toLowerCase()
+									if (normalizedType.includes('pie')) {
+										const total = dataPoints.reduce((sum, point) => sum + Math.max(point.value, 0), 0)
+										let current = 0
+										const segments = dataPoints.map((point, index) => {
+											const value = Math.max(point.value, 0)
+											const start = total > 0 ? (current / total) * 360 : 0
+											current += value
+											const end = total > 0 ? (current / total) * 360 : start
+											const color = CHART_COLORS[index % CHART_COLORS.length]
+											return `${color} ${start}deg ${end}deg`
+										})
+										const pieStyle = total
+											? { background: `conic-gradient(${segments.join(', ')})` }
+											: {
+												background:
+													'linear-gradient(135deg, rgba(96,165,250,0.45), rgba(14,165,233,0.25))',
+											}
 										return (
-											<div key={point.label}>
-												<div className="flex items-center justify-between text-xs text-scheme-muted-text/80">
-													<span>{point.label}</span>
-													<span>{point.value}</span>
-												</div>
-												<div className="mt-1 h-2 w-full rounded-full bg-space-900/60">
-													<div className="h-2 rounded-full" style={{ width: `${width}%`, backgroundColor: color }} />
-												</div>
+											<div className="flex flex-col items-center gap-4">
+												<div className="h-56 w-56 rounded-full border border-scheme-border-subtle/40" style={pieStyle} />
+												<ul className="w-full space-y-2 text-xs text-scheme-muted-text/85">
+													{dataPoints.map((point, index) => (
+														<li key={point.label} className="flex items-center justify-between gap-3 rounded-lg border border-scheme-border-subtle/60 bg-scheme-surface/80 px-3 py-2">
+															<span className="flex items-center gap-2">
+																<span
+																	className="inline-block h-2 w-2 rounded-full"
+																	style={{ backgroundColor: CHART_COLORS[index % CHART_COLORS.length] }}
+																/>
+																{point.label}
+															</span>
+															<span>{point.value}</span>
+														</li>
+													))}
+												</ul>
 											</div>
 										)
-									})}
-								</div>
-							)
-						})()}
+									}
+									const max = dataPoints.reduce((acc, point) => Math.max(acc, Math.abs(point.value)), 0)
+									return (
+										<div className="space-y-4 rounded-3xl border border-black/5 dark:border-white/10 bg-slate-50/80 dark:bg-space-900/40 p-8 shadow-inner backdrop-blur-md">
+											{dataPoints.map((point, index) => {
+												const proportion = max > 0 ? Math.abs(point.value) / max : 0
+												const width = Math.max(proportion * 100, 4)
+												const color = CHART_COLORS[index % CHART_COLORS.length]
+												return (
+													<div key={point.label} className="group">
+														<div className="flex items-center justify-between text-sm font-semibold text-slate-700 dark:text-space-200 mb-2">
+															<span>{point.label}</span>
+															<span className="text-slate-500 dark:text-space-400">{point.value}</span>
+														</div>
+														<div className="h-3 w-full rounded-full bg-black/5 dark:bg-white/5 overflow-hidden ring-1 ring-inset ring-black/5 dark:ring-white/10">
+															<div className="h-full rounded-full shadow-[0_0_10px_rgba(255,255,255,0.2)] transition-all duration-1000 group-hover:brightness-110" style={{ width: `${width}%`, backgroundColor: color }} />
+														</div>
+													</div>
+												)
+											})}
+										</div>
+									)
+								})()}
+							</div>
+						</ScrollArea>
 					</div>
-					</ScrollArea>
 				</DialogContent>
 			) : null}
 		</Dialog>
@@ -1710,112 +1718,119 @@ export function ToolCallResults({ message, toolId }: ToolCallResultsProps) {
 			}}
 		>
 			{graphModal ? (
-				<DialogContent className="max-w-6xl max-h-[90vh] overflow-hidden">
-					<DialogHeader>
-						<DialogTitle className="text-xl font-bold">{graphModal.artifact.title ?? 'Knowledge graph'}</DialogTitle>
-						<DialogDescription className="text-sm">
-							{graphModal.data.nodes.length} nodes • {graphModal.data.edges.length} connections
-							{graphModal.data.tags.length ? (
-								<span className="ml-3">
-									{graphModal.data.tags.slice(0, 3).map((tag) => (
-										<span key={tag} className="ml-1 rounded-full bg-biosphere-500/10 px-2 py-0.5 text-xs text-biosphere-300">
-											{tag}
-										</span>
-									))}
+				<DialogContent className="max-w-6xl max-h-[92vh] overflow-hidden border border-black/5 dark:border-white/10 bg-white/90 dark:bg-space-950/80 backdrop-blur-3xl shadow-2xl p-0 sm:p-0">
+					<div className="p-8 h-full flex flex-col">
+						<DialogHeader className="pr-8 space-y-2">
+							<DialogTitle className="text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white drop-shadow-sm">{graphModal.artifact.title ?? 'Knowledge graph'}</DialogTitle>
+							<DialogDescription className="flex flex-wrap items-center gap-2 text-sm pt-2">
+								<span className="rounded-full bg-purple-500/15 ring-1 ring-purple-500/30 px-3.5 py-1 text-xs font-bold uppercase tracking-widest text-purple-600 dark:text-purple-400">
+									{graphModal.data.nodes.length} nodes • {graphModal.data.edges.length} connections
 								</span>
-							) : null}
-						</DialogDescription>
-					</DialogHeader>
-					{(() => {
-						const nodeMap = new Map(graphModal.data.nodes.map((node) => [node.id, node]))
-						const activeNodeId = graphSelection ?? graphModal.data.nodes[0]?.id ?? null
-						const selectedNode = activeNodeId ? nodeMap.get(activeNodeId) ?? null : null
-						const relatedEdges = selectedNode
-							? graphModal.data.edges.filter((edge) => edge.source === selectedNode.id || edge.target === selectedNode.id)
-							: []
-						return (
-							<div className="mt-6 grid gap-6 lg:grid-cols-[280px_1fr]">
-								<div className="space-y-4">
-									<div className="flex items-center gap-2">
-										<div className="h-2 w-2 rounded-full bg-biosphere-500" />
-										<p className="text-sm font-semibold text-scheme-text">Entities</p>
-									</div>
-									<ScrollArea className="max-h-[65vh] rounded-2xl border border-biosphere-500/20 bg-scheme-surface/50">
-										<div className="flex flex-col">
-											{graphModal.data.nodes.map((node) => {
-												const isActive = node.id === activeNodeId
-												return (
-													<button
-														type="button"
-														key={node.id}
-														onClick={() => setGraphSelection(node.id)}
-														className={`flex flex-col items-start gap-1.5 border-b border-scheme-border-subtle/30 px-4 py-3 text-left transition-all ${
-															isActive
-																? 'bg-biosphere-500/20 text-biosphere-100 shadow-inner'
-																: 'text-scheme-text hover:bg-biosphere-500/10'
-														}`}
-													>
-														<span className="text-sm font-semibold">{node.label}</span>
-														{node.type ? (
-															<span className="rounded-full bg-scheme-muted/20 px-2 py-0.5 text-[0.65rem] uppercase tracking-wide text-scheme-muted-text">
-																{node.type}
-															</span>
-														) : null}
-													</button>
-												)
-											})}
-											{graphModal.data.nodes.length === 0 ? (
-												<p className="px-4 py-6 text-xs text-scheme-muted-text">No entities found.</p>
-											) : null}
+								{graphModal.data.tags.length ? (
+									<>
+										{graphModal.data.tags.slice(0, 3).map((tag) => (
+											<span key={tag} className="rounded-full border border-black/5 dark:border-white/10 bg-slate-100 dark:bg-space-800/80 px-3.5 py-1 text-xs font-semibold text-slate-600 dark:text-space-300">
+												{tag}
+											</span>
+										))}
+									</>
+								) : null}
+							</DialogDescription>
+						</DialogHeader>
+						{(() => {
+							const nodeMap = new Map(graphModal.data.nodes.map((node) => [node.id, node]))
+							const activeNodeId = graphSelection ?? graphModal.data.nodes[0]?.id ?? null
+							const selectedNode = activeNodeId ? nodeMap.get(activeNodeId) ?? null : null
+							const relatedEdges = selectedNode
+								? graphModal.data.edges.filter((edge) => edge.source === selectedNode.id || edge.target === selectedNode.id)
+								: []
+							return (
+								<div className="mt-8 grid gap-6 lg:grid-cols-[300px_1fr] flex-1 overflow-hidden">
+									<div className="space-y-4 flex flex-col overflow-hidden">
+										<div className="flex items-center gap-2.5 px-1">
+											<div className="h-2 w-2 rounded-full bg-purple-500 shadow-[0_0_8px_rgba(168,85,247,0.6)]" />
+											<p className="text-sm font-bold tracking-wide uppercase text-slate-700 dark:text-space-300">Entities</p>
 										</div>
-									</ScrollArea>
-								</div>
-								<div className="space-y-6">
-									<div className="relative h-[60vh] min-h-[420px] overflow-hidden rounded-3xl border border-biosphere-500/25 bg-gradient-to-br from-scheme-surface/90 via-scheme-surface/70 to-scheme-surface/60 p-4 shadow-2xl">
-										<GraphVisualization
-											nodes={graphModal.data.nodes}
-											edges={graphModal.data.edges}
-											selectedNodeId={activeNodeId}
-											onSelect={(nodeId) => setGraphSelection(nodeId)}
-										/>
-									</div>
-									{graphModal.data.context ? (
-										<div className="rounded-2xl border border-biosphere-500/20 bg-gradient-to-br from-biosphere-500/10 to-scheme-surface/70 p-5 shadow-lg">
-											<p className="mb-2 text-sm font-semibold text-biosphere-200">Context</p>
-											<p className="text-sm leading-relaxed text-scheme-text/90">{graphModal.data.context}</p>
-										</div>
-									) : null}
-									{selectedNode ? (
-										<div className="rounded-2xl border border-biosphere-500/20 bg-scheme-surface/75 p-6 shadow-xl">
-											<p className="text-xs font-semibold uppercase tracking-wide text-biosphere-200/80">Selected entity</p>
-											<h3 className="mt-2 text-lg font-bold text-scheme-text">{selectedNode.label}</h3>
-											{selectedNode.type ? (
-												<p className="text-xs uppercase tracking-wide text-scheme-muted-text/90">{selectedNode.type}</p>
-											) : null}
-											<div className="mt-3 flex flex-wrap gap-2">
-												{relatedEdges.length ? (
-													relatedEdges.map((edge, index) => {
-														const otherNodeId = edge.source === selectedNode.id ? edge.target : edge.source
-														const target = nodeMap.get(otherNodeId)
-														return (
-															<span
-																key={`${edge.source}-${edge.target}-${index}`}
-																className="rounded-full border border-biosphere-500/30 bg-biosphere-500/10 px-3 py-1 text-xs text-biosphere-200"
-															>
-																{edge.relation ?? 'Related to'} • {target?.label ?? otherNodeId}
-															</span>
-														)
-													})
-												) : (
-													<span className="text-xs text-scheme-muted-text">No immediate connections.</span>
-												)}
+										<ScrollArea className="flex-1 rounded-3xl border border-black/5 dark:border-white/10 bg-slate-50/80 dark:bg-space-900/40 shadow-inner backdrop-blur-md">
+											<div className="flex flex-col py-2">
+												{graphModal.data.nodes.map((node) => {
+													const isActive = node.id === activeNodeId
+													return (
+														<button
+															type="button"
+															key={node.id}
+															onClick={() => setGraphSelection(node.id)}
+															className={`flex flex-col items-start gap-1.5 border-b border-black/5 dark:border-white/5 px-5 py-3 text-left transition-all relative overflow-hidden group ${isActive
+																? 'bg-gradient-to-r from-purple-500/10 to-transparent'
+																: 'hover:bg-black/5 dark:hover:bg-white/5'
+																}`}
+														>
+															{isActive && <div className="absolute left-0 top-0 bottom-0 w-1 bg-purple-500 shadow-[0_0_10px_rgba(168,85,247,0.5)]" />}
+															<span className={cn("text-sm font-bold transition-colors", isActive ? "text-purple-700 dark:text-purple-300" : "text-slate-700 dark:text-space-200 group-hover:text-slate-900 dark:group-hover:text-white")}>{node.label}</span>
+															{node.type ? (
+																<span className={cn("rounded-full px-2.5 py-0.5 text-[0.65rem] font-bold uppercase tracking-widest transition-colors", isActive ? "bg-purple-500/20 text-purple-700 dark:text-purple-300" : "bg-black/5 dark:bg-white/10 text-slate-500 dark:text-space-400 group-hover:bg-black/10 dark:group-hover:bg-white/20")}>
+																	{node.type}
+																</span>
+															) : null}
+														</button>
+													)
+												})}
+												{graphModal.data.nodes.length === 0 ? (
+													<p className="px-5 py-6 text-sm text-slate-500 dark:text-space-400 font-medium">No entities found.</p>
+												) : null}
 											</div>
+										</ScrollArea>
+									</div>
+									<div className="space-y-6 flex flex-col overflow-hidden max-h-[72vh]">
+										<div className="relative flex-1 min-h-[420px] overflow-hidden rounded-3xl border border-black/5 dark:border-white/10 bg-gradient-to-br from-slate-50/90 via-slate-100/70 to-slate-200/60 dark:from-space-900/90 dark:via-space-800/70 dark:to-space-950/60 p-4 shadow-inner">
+											<GraphVisualization
+												nodes={graphModal.data.nodes}
+												edges={graphModal.data.edges}
+												selectedNodeId={activeNodeId}
+												onSelect={(nodeId) => setGraphSelection(nodeId)}
+											/>
 										</div>
-									) : null}
+										<ScrollArea className="max-h-[30vh]">
+											{graphModal.data.context ? (
+												<div className="rounded-3xl border border-black/5 dark:border-white/10 bg-gradient-to-br from-purple-500/5 to-transparent dark:from-purple-500/10 dark:to-space-900/40 p-6 shadow-sm backdrop-blur-md mb-4">
+													<p className="mb-2 text-[11px] font-bold uppercase tracking-widest text-purple-600 dark:text-purple-400">Context</p>
+													<p className="text-sm leading-relaxed text-slate-700 dark:text-space-200">{graphModal.data.context}</p>
+												</div>
+											) : null}
+											{selectedNode ? (
+												<div className="rounded-3xl border border-black/5 dark:border-white/10 bg-white/60 dark:bg-space-950/40 p-6 shadow-sm backdrop-blur-md">
+													<p className="text-[11px] font-bold uppercase tracking-widest text-slate-500 dark:text-space-400">Selected entity</p>
+													<h3 className="mt-1 text-2xl font-extrabold text-slate-900 dark:text-white drop-shadow-sm">{selectedNode.label}</h3>
+													{selectedNode.type ? (
+														<p className="mt-1 text-[11px] font-bold uppercase tracking-widest text-slate-500 dark:text-space-400">{selectedNode.type}</p>
+													) : null}
+													<div className="mt-4 flex flex-wrap gap-2.5">
+														{relatedEdges.length ? (
+															relatedEdges.map((edge, index) => {
+																const otherNodeId = edge.source === selectedNode.id ? edge.target : edge.source
+																const target = nodeMap.get(otherNodeId)
+																return (
+																	<span
+																		key={`${edge.source}-${edge.target}-${index}`}
+																		className="rounded-full border border-black/5 dark:border-white/10 bg-slate-100 dark:bg-space-800/80 px-3.5 py-1.5 text-[0.7rem] font-bold text-slate-700 dark:text-space-200 shadow-sm"
+																	>
+																		<span className="text-purple-600 dark:text-purple-400 mr-1.5 opacity-80">{edge.relation ?? 'Related to'}</span>
+																		{target?.label ?? otherNodeId}
+																	</span>
+																)
+															})
+														) : (
+															<span className="text-sm text-slate-500 dark:text-space-400 italic">No immediate connections.</span>
+														)}
+													</div>
+												</div>
+											) : null}
+										</ScrollArea>
+									</div>
 								</div>
-							</div>
-						)
-					})()}
+							)
+						})()}
+					</div>
 				</DialogContent>
 			) : null}
 		</Dialog>
@@ -1840,23 +1855,127 @@ export function ToolCallResults({ message, toolId }: ToolCallResultsProps) {
 	)
 }
 
-	const renderContextualSearch = (search: ContextualSearchData) => {
-		return (
-			<div className="mt-3 rounded-2xl border border-scheme-border-subtle bg-scheme-surface/90 p-4 shadow-sm">
-				<div className="flex items-start gap-3">
-					<span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-scheme-muted/20 text-scheme-muted-text">
-						<HiOutlineGlobeAlt className="h-5 w-5" />
+const renderContextualSearch = (search: ContextualSearchData) => {
+	return <ContextualSearchBlock search={search} />
+}
+
+const renderAnswerWithSources = (answer: AnswerWithSourcesData) => {
+	return (
+		<div className="mt-3 relative overflow-hidden rounded-2xl border border-biosphere-500/20 dark:border-biosphere-500/10 bg-gradient-to-br from-white/80 via-emerald-50/20 to-white/40 dark:from-space-800/80 dark:via-emerald-900/10 dark:to-space-900/60 p-5 shadow-sm backdrop-blur-xl transition-all hover:shadow-md group hover:border-emerald-500/30 dark:hover:border-emerald-500/20">
+			<div className="flex items-start gap-4 relative z-10">
+				<span className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500/20 to-emerald-600/5 text-emerald-600 dark:text-emerald-400 ring-1 ring-emerald-500/30 shadow-inner group-hover:ring-emerald-500/50 transition-all">
+					<HiOutlineSparkles className="h-5 w-5 drop-shadow-[0_0_8px_rgba(16,185,129,0.3)] group-hover:scale-110 transition-transform" />
+				</span>
+				<div className="flex-1 space-y-3">
+					<div className="space-y-0.5">
+						<p className="text-[15px] font-bold text-slate-800 dark:text-space-200 tracking-tight">Grounded answer</p>
+						<p className="text-[0.7rem] font-semibold text-slate-400 dark:text-space-400/80 uppercase tracking-widest">Cites contextual search sources inline.</p>
+					</div>
+					<div className="rounded-xl border border-black/5 dark:border-white/10 bg-white/60 dark:bg-space-950/40 px-5 py-4 text-[13px] text-slate-700 dark:text-space-200 backdrop-blur shadow-sm">
+						<strong className="font-bold text-slate-900 dark:text-white mr-2">Question:</strong> {answer.query}
+					</div>
+					<div className="rounded-2xl border border-black/5 dark:border-white/10 bg-white/80 dark:bg-space-900/80 px-5 py-4 text-sm leading-relaxed text-slate-700 dark:text-space-200 shadow-sm backdrop-blur">
+						<ReactMarkdown remarkPlugins={[remarkGfm]} className="prose prose-invert max-w-none text-sm leading-relaxed text-slate-700 dark:text-space-200 [&>*]:mb-3 [&>*:last-child]:mb-0">
+							{answer.answer}
+						</ReactMarkdown>
+					</div>
+					{answer.sources.length ? (
+						<div className="space-y-3">
+							<p className="text-xs font-semibold uppercase tracking-wide text-scheme-muted-text/70">Sources</p>
+							<div className="space-y-2">
+								{answer.sources.map((source, index) => {
+									const similarityLabel = formatSimilarityScore(source.similarityScore)
+									return (
+										<div
+											key={`answer-source-${index}-${source.url ?? source.pmcid ?? 'local'}`}
+											className="rounded-2xl border border-biosphere-500/20 bg-scheme-surface/95 p-4"
+										>
+											<div className="flex flex-wrap items-center gap-2">
+												<span className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-biosphere-500/25 text-xs font-semibold text-biosphere-200">
+													{index + 1}
+												</span>
+												<p className="text-sm font-semibold text-scheme-text">
+													{source.title ?? 'Untitled source'}
+												</p>
+												{similarityLabel ? (
+													<Badge variant="outline" className="rounded-full border-biosphere-500/40 text-[0.65rem] text-biosphere-200">
+														Sim {similarityLabel}
+													</Badge>
+												) : null}
+											</div>
+											<p className="mt-2 text-sm leading-relaxed text-scheme-text/85">{source.text}</p>
+											<div className="mt-3 flex flex-wrap items-center gap-2">
+												{source.url ? (
+													<Button
+														type="button"
+														size="sm"
+														variant="ghost"
+														className="rounded-full text-xs text-biosphere-300 hover:bg-biosphere-500/10"
+														onClick={() => openExternalLink(source.url)}
+													>
+														View source
+													</Button>
+												) : null}
+												{source.pmcid ? (
+													<Badge variant="secondary" className="rounded-full bg-scheme-muted/30 text-[0.65rem] text-scheme-muted-text">
+														PMC{source.pmcid}
+													</Badge>
+												) : null}
+												{source.chunkIndex !== null ? (
+													<Badge variant="outline" className="rounded-full border-scheme-border-subtle/70 text-[0.65rem] text-scheme-muted-text">
+														Chunk {source.chunkIndex}
+													</Badge>
+												) : null}
+											</div>
+										</div>
+									)
+								})}
+							</div>
+						</div>
+					) : null}
+				</div>
+			</div>
+		</div>
+	)
+}
+
+export default ToolCallResults
+
+function ContextualSearchBlock({ search }: { search: ContextualSearchData }) {
+	const [expanded, setExpanded] = useState(false)
+	const matchCount = search.results.length
+
+	return (
+		<div className="mt-3 rounded-2xl border border-black/5 dark:border-white/10 bg-white/40 dark:bg-space-900/40 shadow-sm backdrop-blur-md transition-all overflow-hidden">
+			<button
+				type="button"
+				onClick={() => setExpanded(!expanded)}
+				className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left transition hover:bg-white/60 dark:hover:bg-space-800/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-biosphere-500/50 group"
+			>
+				<div className="flex items-center gap-3">
+					<span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-biosphere-500/20 to-biosphere-600/5 text-biosphere-600 dark:text-biosphere-400 ring-1 ring-biosphere-500/30 group-hover:ring-biosphere-500/50 shadow-inner">
+						<HiOutlineGlobeAlt className="h-4 w-4 drop-shadow-[0_0_8px_rgba(0,231,179,0.3)] transition-transform group-hover:scale-110" />
 					</span>
-					<div className="flex-1 space-y-3">
-						<div>
-							<p className="text-sm font-semibold text-scheme-text">Contextual search</p>
-							<p className="text-xs text-scheme-muted-text/80">
-								Top {search.topK} · {search.results.length} match{search.results.length === 1 ? '' : 'es'}
-							</p>
-						</div>
-						<div className="rounded-2xl border border-scheme-border-subtle/60 bg-scheme-muted/10 px-4 py-3 text-sm italic text-scheme-text/90">
-							“{search.query}”
-						</div>
+					<div>
+						<p className="text-sm font-semibold text-slate-800 dark:text-space-200">
+							Contextual search: <span className="font-normal italic text-slate-500 dark:text-space-400">"{search.query}"</span>
+						</p>
+						<p className="text-[0.7rem] font-medium text-slate-400 dark:text-space-400/80 uppercase tracking-widest mt-0.5">
+							{matchCount} Match{matchCount === 1 ? '' : 'es'} Retrieved
+						</p>
+					</div>
+				</div>
+				<span className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 dark:bg-space-800/80 text-slate-400 transition-colors group-hover:bg-slate-200 dark:group-hover:bg-space-700/80 group-hover:text-slate-600 dark:group-hover:text-space-300">
+					<HiMiniChevronDown className={`h-4 w-4 transition-transform duration-300 ${expanded ? 'rotate-180' : ''}`} />
+				</span>
+			</button>
+
+			<div
+				className={`grid transition-[grid-template-rows,opacity] duration-300 ease-in-out ${expanded ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'
+					}`}
+			>
+				<div className="overflow-hidden">
+					<div className="border-t border-black/5 dark:border-white/10 bg-slate-50/50 dark:bg-space-950/50 p-4 space-y-4">
 						{search.results.length ? (
 							<div className="space-y-3">
 								{search.results.map((result, index) => {
@@ -1864,41 +1983,41 @@ export function ToolCallResults({ message, toolId }: ToolCallResultsProps) {
 									return (
 										<div
 											key={`contextual-result-${index}-${result.url ?? result.pmcid ?? 'local'}`}
-											className="rounded-2xl border border-scheme-border-subtle/70 bg-scheme-surface/95 p-4"
+											className="rounded-2xl border border-black/5 dark:border-white/5 bg-white/80 dark:bg-space-900/80 p-5 shadow-sm backdrop-blur-md"
 										>
-											<div className="flex flex-wrap items-center gap-2">
-												<span className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-biosphere-500/20 text-xs font-semibold text-biosphere-200">
+											<div className="flex flex-wrap items-center gap-2 mb-3">
+												<span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-biosphere-500/15 text-xs font-bold text-biosphere-600 dark:text-biosphere-400">
 													{index + 1}
 												</span>
-												<p className="text-sm font-semibold text-scheme-text">
+												<p className="text-sm font-bold text-slate-800 dark:text-space-200">
 													{result.title ?? 'Untitled excerpt'}
 												</p>
 												{similarityLabel ? (
-													<Badge variant="outline" className="rounded-full border-biosphere-500/30 text-[0.65rem] text-biosphere-200">
-														Sim {similarityLabel}
+													<Badge variant="outline" className="rounded-full border-biosphere-500/30 bg-biosphere-500/5 text-[0.65rem] text-biosphere-600 dark:text-biosphere-400 font-semibold tracking-wider">
+														SIM {similarityLabel}
 													</Badge>
 												) : null}
 											</div>
-											<p className="mt-2 text-sm leading-relaxed text-scheme-text/85">{result.text}</p>
-											<div className="mt-3 flex flex-wrap items-center gap-2">
+											<p className="text-[13px] leading-relaxed text-slate-600 dark:text-space-300/90">{result.text}</p>
+											<div className="mt-4 flex flex-wrap items-center gap-2 pt-3 border-t border-black/5 dark:border-white/5">
 												{result.url ? (
 													<Button
 														type="button"
 														size="sm"
 														variant="ghost"
-														className="rounded-full text-xs text-biosphere-300 hover:bg-biosphere-500/10"
+														className="h-8 rounded-full text-xs font-semibold text-biosphere-600 dark:text-biosphere-400 hover:bg-biosphere-500/10 hover:text-biosphere-700 dark:hover:text-biosphere-300"
 														onClick={() => openExternalLink(result.url)}
 													>
-														Open source
+														Open Source
 													</Button>
 												) : null}
 												{result.pmcid ? (
-													<Badge variant="secondary" className="rounded-full bg-scheme-muted/30 text-[0.65rem] text-scheme-muted-text">
+													<Badge variant="secondary" className="rounded-full bg-slate-100 dark:bg-space-800 text-[0.65rem] font-medium text-slate-500 dark:text-space-400">
 														PMC{result.pmcid}
 													</Badge>
 												) : null}
 												{result.chunkIndex !== null ? (
-													<Badge variant="outline" className="rounded-full border-scheme-border-subtle/70 text-[0.65rem] text-scheme-muted-text">
+													<Badge variant="outline" className="rounded-full border-black/10 dark:border-white/10 text-[0.65rem] font-medium text-slate-500 dark:text-space-400">
 														Chunk {result.chunkIndex}
 													</Badge>
 												) : null}
@@ -1908,92 +2027,11 @@ export function ToolCallResults({ message, toolId }: ToolCallResultsProps) {
 								})}
 							</div>
 						) : (
-							<p className="text-sm text-scheme-muted-text/90">No matches were returned.</p>
+							<p className="text-sm text-slate-500 dark:text-space-400/90 text-center py-4">No matches were returned.</p>
 						)}
 					</div>
 				</div>
 			</div>
-		)
-	}
-
-	const renderAnswerWithSources = (answer: AnswerWithSourcesData) => {
-		return (
-			<div className="mt-3 rounded-2xl border border-biosphere-500/30 bg-biosphere-500/10 p-4 backdrop-blur">
-				<div className="flex items-start gap-3">
-					<span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-biosphere-500/20 text-biosphere-200">
-						<HiOutlineSparkles className="h-5 w-5" />
-					</span>
-					<div className="flex-1 space-y-3">
-						<div>
-							<p className="text-sm font-semibold text-scheme-text">Grounded answer</p>
-							<p className="text-xs text-scheme-muted-text/80">Cites contextual search sources inline.</p>
-						</div>
-						<div className="rounded-2xl border border-biosphere-500/30 bg-scheme-surface/90 px-4 py-3 text-sm text-scheme-text/90">
-							<strong className="font-semibold text-scheme-text">Question:</strong> {answer.query}
-						</div>
-						<div className="rounded-2xl border border-biosphere-500/20 bg-scheme-surface/95 px-4 py-3 text-sm leading-relaxed text-scheme-text/95">
-							<ReactMarkdown remarkPlugins={[remarkGfm]} className="prose prose-invert max-w-none text-sm leading-relaxed text-scheme-text [&>*]:mb-3 [&>*:last-child]:mb-0">
-								{answer.answer}
-							</ReactMarkdown>
-						</div>
-						{answer.sources.length ? (
-							<div className="space-y-3">
-								<p className="text-xs font-semibold uppercase tracking-wide text-scheme-muted-text/70">Sources</p>
-								<div className="space-y-2">
-									{answer.sources.map((source, index) => {
-										const similarityLabel = formatSimilarityScore(source.similarityScore)
-										return (
-											<div
-												key={`answer-source-${index}-${source.url ?? source.pmcid ?? 'local'}`}
-												className="rounded-2xl border border-biosphere-500/20 bg-scheme-surface/95 p-4"
-											>
-												<div className="flex flex-wrap items-center gap-2">
-													<span className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-biosphere-500/25 text-xs font-semibold text-biosphere-200">
-														{index + 1}
-													</span>
-													<p className="text-sm font-semibold text-scheme-text">
-														{source.title ?? 'Untitled source'}
-													</p>
-													{similarityLabel ? (
-														<Badge variant="outline" className="rounded-full border-biosphere-500/40 text-[0.65rem] text-biosphere-200">
-															Sim {similarityLabel}
-														</Badge>
-													) : null}
-												</div>
-												<p className="mt-2 text-sm leading-relaxed text-scheme-text/85">{source.text}</p>
-												<div className="mt-3 flex flex-wrap items-center gap-2">
-													{source.url ? (
-														<Button
-															type="button"
-															size="sm"
-															variant="ghost"
-															className="rounded-full text-xs text-biosphere-300 hover:bg-biosphere-500/10"
-															onClick={() => openExternalLink(source.url)}
-														>
-															View source
-														</Button>
-													) : null}
-													{source.pmcid ? (
-														<Badge variant="secondary" className="rounded-full bg-scheme-muted/30 text-[0.65rem] text-scheme-muted-text">
-															PMC{source.pmcid}
-														</Badge>
-													) : null}
-													{source.chunkIndex !== null ? (
-														<Badge variant="outline" className="rounded-full border-scheme-border-subtle/70 text-[0.65rem] text-scheme-muted-text">
-															Chunk {source.chunkIndex}
-														</Badge>
-													) : null}
-												</div>
-											</div>
-										)
-									})}
-								</div>
-							</div>
-						) : null}
-					</div>
-				</div>
-			</div>
-		)
-	}
-
-export default ToolCallResults
+		</div>
+	)
+}
