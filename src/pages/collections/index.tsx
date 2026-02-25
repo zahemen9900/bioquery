@@ -12,6 +12,7 @@ import { useAppShell } from '@/contexts/app-shell-context'
 import { cn } from '@/lib/utils'
 
 import CollectionCard, { type CollectionArtifact, type CollectionKind } from './components/CollectionCard'
+import { ArtifactViewerModal, type ArtifactViewerTarget } from '@/components/artifacts/ArtifactViewerModal'
 
 type TabValue = 'all' | CollectionKind
 
@@ -108,6 +109,7 @@ export default function CollectionsPage() {
 	const [searchTerm, setSearchTerm] = useState('')
 	const [loading, setLoading] = useState(false)
 	const [error, setError] = useState<string | null>(null)
+	const [viewingArtifact, setViewingArtifact] = useState<ArtifactViewerTarget | null>(null)
 
 	useEffect(() => {
 		if (!user) {
@@ -157,6 +159,7 @@ export default function CollectionsPage() {
 					return {
 						id: String(entry.id),
 						kind: mapArtifactKind(entry.artifact_type ?? ''),
+						artifactType: entry.artifact_type ?? null,
 						title: entry.title,
 						snippet: snippet ? snippet.slice(0, 320) : null,
 						tags,
@@ -172,6 +175,7 @@ export default function CollectionsPage() {
 					return {
 						id: entry.id,
 						kind: 'document',
+						artifactType: null,
 						title: entry.title,
 						snippet: entry.body ? entry.body.slice(0, 320) : null,
 						tags,
@@ -319,11 +323,24 @@ export default function CollectionsPage() {
 
 					<div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
 						{filteredCollections.map((item) => (
-							<CollectionCard key={`${item.source}-${item.id}`} artifact={item} />
+							<CollectionCard
+								key={`${item.source}-${item.id}`}
+								artifact={item}
+								onOpen={() => setViewingArtifact({
+									id: item.id,
+									type: item.artifactType ?? item.kind,
+									title: item.title,
+									source: item.source,
+								})}
+							/>
 						))}
 					</div>
 				</div>
 			</div>
+			<ArtifactViewerModal
+				target={viewingArtifact}
+				onClose={() => setViewingArtifact(null)}
+			/>
 		</div >
 	)
 }

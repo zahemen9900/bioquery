@@ -1,5 +1,4 @@
 import { HiOutlineBookmark, HiOutlineChartBar, HiOutlineDocumentText, HiOutlineSparkles } from 'react-icons/hi2'
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
 
 export type CollectionKind = 'summary' | 'document' | 'visualization' | 'dataset'
@@ -7,6 +6,8 @@ export type CollectionKind = 'summary' | 'document' | 'visualization' | 'dataset
 export interface CollectionArtifact {
 	id: string
 	kind: CollectionKind
+	/** The raw artifact_type string from Supabase (e.g. "timeline", "visual_json", "knowledge_graph"). */
+	artifactType: string | null
 	title: string | null
 	snippet: string | null
 	tags: string[]
@@ -39,28 +40,32 @@ const TYPE_BADGES: Record<CollectionKind, { label: string; icon: typeof HiOutlin
 	},
 }
 
-export function CollectionCard({ artifact }: { artifact: CollectionArtifact }) {
+export function CollectionCard({ artifact, onOpen }: { artifact: CollectionArtifact; onOpen?: () => void }) {
 	const badge = TYPE_BADGES[artifact.kind]
 	const Icon = badge.icon
 
 	return (
-		<Card className="group relative flex h-full flex-col overflow-hidden rounded-[2rem] border-black/5 dark:border-white/10 bg-white/60 dark:bg-space-900/40 shadow-sm hover:shadow-2xl dark:hover:shadow-[0_15px_40px_rgba(0,231,179,0.08)] backdrop-blur-3xl transition-all duration-500 hover:-translate-y-2 hover:border-biosphere-500/30">
+		<button
+			type="button"
+			className="group relative flex h-full w-full flex-col overflow-hidden rounded-[2rem] border border-black/5 dark:border-white/10 bg-white/60 dark:bg-space-900/40 shadow-sm hover:shadow-2xl dark:hover:shadow-[0_15px_40px_rgba(0,231,179,0.08)] backdrop-blur-3xl transition-all duration-500 hover:-translate-y-2 hover:border-biosphere-500/30 text-left"
+			onClick={onOpen}
+		>
 			<div className="absolute inset-0 bg-gradient-to-br from-biosphere-500/0 via-transparent to-cosmic-500/0 opacity-0 transition-opacity duration-500 group-hover:from-biosphere-500/5 group-hover:to-cosmic-500/5 group-hover:opacity-100 pointer-events-none" />
 
-			<CardHeader className="gap-4 relative z-10 pt-8 px-8">
+			<div className="gap-4 relative z-10 pt-8 px-8">
 				<div className={cn('inline-flex items-center gap-2 rounded-xl px-3 py-1.5 text-xs font-bold w-fit shadow-sm', badge.tint)}>
 					<Icon className="h-4 w-4" />
 					{badge.label}
 				</div>
 				<div className="space-y-1 mt-2">
-					<CardTitle className="text-2xl font-display font-bold text-slate-900 dark:text-white transition-colors group-hover:text-biosphere-600 dark:group-hover:text-biosphere-400 tracking-tight leading-tight">
+					<p className="text-2xl font-display font-bold text-slate-900 dark:text-white transition-colors group-hover:text-biosphere-600 dark:group-hover:text-biosphere-400 tracking-tight leading-tight">
 						{artifact.title?.trim() || 'Untitled entry'}
-					</CardTitle>
-					<CardDescription className="text-xs text-slate-500 dark:text-space-400 font-semibold tracking-wide uppercase">
+					</p>
+					<p className="text-xs text-slate-500 dark:text-space-400 font-semibold tracking-wide uppercase">
 						{artifact.chatName ? `Captured from “${artifact.chatName}”` : artifact.source === 'document' ? 'Saved document' : 'Generated via Discover'}
-					</CardDescription>
+					</p>
 				</div>
-			</CardHeader>
+			</div>
 
 			{artifact.previewImageUrl ? (
 				<div className="mx-8 relative z-10 h-40 overflow-hidden rounded-2xl border border-black/5 dark:border-white/10 bg-slate-100 dark:bg-space-800 shadow-inner group-hover:ring-2 ring-biosphere-500/20 transition-all duration-500">
@@ -73,7 +78,7 @@ export function CollectionCard({ artifact }: { artifact: CollectionArtifact }) {
 				</div>
 			) : null}
 
-			<CardContent className="flex flex-1 flex-col justify-end gap-4 relative z-10 px-8 pb-8 pt-4">
+			<div className="flex flex-1 flex-col justify-end gap-4 relative z-10 px-8 pb-8 pt-4">
 				<div className="line-clamp-4 text-sm whitespace-pre-line leading-relaxed text-slate-600 dark:text-space-300">
 					{artifact.snippet?.length ? artifact.snippet : 'This entry is ready to revisit when you are.'}
 				</div>
@@ -86,13 +91,16 @@ export function CollectionCard({ artifact }: { artifact: CollectionArtifact }) {
 						))}
 					</div>
 				) : null}
-			</CardContent>
+			</div>
 
-			<CardFooter className="flex items-center justify-between border-t border-black/5 dark:border-white/10 bg-slate-100/30 dark:bg-space-950/40 px-8 py-4 text-xs font-bold text-slate-400 dark:text-space-500 relative z-10">
+			<div className="flex items-center justify-between border-t border-black/5 dark:border-white/10 bg-slate-100/30 dark:bg-space-950/40 px-8 py-4 text-xs font-bold text-slate-400 dark:text-space-500 relative z-10">
 				<span className="tracking-wide">{new Date(artifact.createdAt).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}</span>
-				<span className="tracking-widest uppercase">{artifact.source === 'document' ? 'Document' : 'Artifact'}</span>
-			</CardFooter>
-		</Card>
+				<span className="tracking-widest uppercase flex items-center gap-1.5">
+					{artifact.source === 'document' ? 'Document' : 'Artifact'}
+					{onOpen ? <span className="text-biosphere-500 opacity-0 group-hover:opacity-100 transition-opacity text-[10px]">&rarr; Open</span> : null}
+				</span>
+			</div>
+		</button>
 	)
 }
 
