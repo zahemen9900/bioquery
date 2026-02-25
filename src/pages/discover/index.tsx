@@ -248,10 +248,10 @@ export default function DiscoverPage() {
   }
 
   return (
-    <div className="flex h-full flex-1 flex-col bg-scheme-background">
+    <div className="flex h-full flex-1 flex-col bg-slate-50 dark:bg-space-950 transition-colors duration-500 relative">
       {/* Compact header only shown in conversation mode */}
       {showConversation && (
-        <section className="border-b border-scheme-border/40 bg-scheme-surface/50 px-4 py-3 backdrop-blur-sm">
+        <section className="relative z-20 border-b border-black/5 dark:border-white/10 bg-white/40 dark:bg-space-900/40 px-4 py-3 backdrop-blur-xl">
           <div className="mx-auto flex w-full max-w-4xl items-center justify-between gap-2">
             <div className="flex items-center gap-2">
               <button
@@ -273,36 +273,37 @@ export default function DiscoverPage() {
                 <PopoverTrigger asChild>
                   <button
                     type="button"
-                    className="group inline-flex items-center gap-2 rounded-lg bg-transparent px-2 py-1 text-left text-sm font-medium text-scheme-text transition hover:bg-scheme-surface-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-biosphere-500"
+                    className="group flex items-center gap-2.5 rounded-full border border-black/5 dark:border-white/10 bg-white/60 dark:bg-space-800/60 px-4 py-1.5 text-sm font-semibold text-slate-700 dark:text-space-200 shadow-sm backdrop-blur-md transition-all hover:border-black/10 dark:hover:border-white/20 hover:bg-white/80 dark:hover:bg-space-800/80 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-biosphere-500/50"
                     aria-haspopup="menu"
                     aria-expanded={menuOpen}
                   >
                     {selectedChat?.is_starred ? (
-                      <HiMiniStar className="h-4 w-4 text-amber-400" />
+                      <HiMiniStar className="h-4 w-4 text-amber-500 drop-shadow-[0_0_8px_rgba(245,158,11,0.5)] transition-transform group-hover:scale-110" />
                     ) : (
-                      <HiMiniSparkles className="h-4 w-4 text-biosphere-500" />
+                      <HiMiniSparkles className="h-4 w-4 text-biosphere-500 transition-transform group-hover:scale-110" />
                     )}
-                    <span>{displayChatName}</span>
-                    <HiMiniChevronDown className="h-4 w-4 text-scheme-muted-text transition group-hover:text-scheme-text" />
+                    <span className="truncate max-w-[200px] md:max-w-[400px] transition-colors group-hover:text-slate-900 dark:group-hover:text-white">{displayChatName}</span>
+                    <HiMiniChevronDown className="h-4 w-4 text-slate-400 dark:text-space-400 transition-all group-hover:text-slate-600 dark:group-hover:text-space-300 group-hover:translate-y-[1px]" />
                   </button>
                 </PopoverTrigger>
-                <PopoverContent className="w-80">
-                  <div className="space-y-4">
-                    <div className="space-y-1">
-                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-scheme-muted-text">Conversation name</p>
+                <PopoverContent className="w-80 rounded-2xl border-black/5 dark:border-white/10 bg-white/95 dark:bg-space-900/95 backdrop-blur-2xl shadow-[0_8px_30px_rgb(0,0,0,0.12)] dark:shadow-[0_8px_30px_rgba(0,0,0,0.6)] p-5">
+                  <div className="space-y-5">
+                    <div className="space-y-2">
+                      <p className="text-xs font-bold uppercase tracking-[0.2em] text-slate-400 dark:text-space-400">Settings</p>
                       <Input
                         value={chatNameDraft}
                         onChange={(event) => setChatNameDraft(event.target.value)}
                         placeholder="Untitled chat"
                         disabled={!isPersistedChat || menuBusy}
+                        className="h-10 border-black/5 dark:border-white/10 bg-slate-50 dark:bg-space-800/50 shadow-inner focus-visible:ring-biosphere-500/50 rounded-xl"
                       />
                       {!isPersistedChat ? (
-                        <p className="text-xs text-scheme-muted-text/80">Options unlock once the first assistant reply is saved.</p>
+                        <p className="text-xs text-slate-400">Options unlock once the first assistant reply is saved.</p>
                       ) : null}
                     </div>
 
                     {menuError ? (
-                      <p className="rounded-md border border-red-500/50 bg-red-500/10 px-3 py-2 text-xs text-red-200">{menuError}</p>
+                      <p className="rounded-xl border border-rose-500/40 bg-rose-500/10 px-3 py-2 text-xs text-rose-500 dark:text-rose-400">{menuError}</p>
                     ) : null}
 
                     <div className="flex items-center justify-between gap-2">
@@ -312,6 +313,7 @@ export default function DiscoverPage() {
                         onClick={handleRenameChat}
                         disabled={!isPersistedChat || menuBusy}
                         iconLeft={<HiMiniPencilSquare className="h-4 w-4" />}
+                        className="flex-1 rounded-xl bg-slate-100 dark:bg-space-800 hover:bg-slate-200 dark:hover:bg-space-700 text-slate-700 dark:text-space-200"
                       >
                         Save name
                       </Button>
@@ -320,22 +322,22 @@ export default function DiscoverPage() {
                         size="sm"
                         onClick={handleToggleStar}
                         disabled={!isPersistedChat || menuBusy}
-                        iconLeft={selectedChat?.is_starred ? <HiMiniStar className="h-4 w-4 text-amber-400" /> : <HiOutlineStar className="h-4 w-4" />}
-                        className="text-xs text-scheme-muted-text hover:text-amber-400"
+                        iconLeft={selectedChat?.is_starred ? <HiMiniStar className="h-4 w-4 text-amber-500" /> : <HiOutlineStar className="h-4 w-4" />}
+                        className="flex-1 rounded-xl text-slate-500 dark:text-space-400 hover:text-amber-600 dark:hover:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-500/10"
                       >
-                        {selectedChat?.is_starred ? 'Unstar' : 'Star chat'}
+                        {selectedChat?.is_starred ? 'Unstar' : 'Star'}
                       </Button>
                     </div>
 
-                    <Separator />
+                    <Separator className="bg-black/5 dark:bg-white/10" />
 
                     <Button
                       variant="ghost"
                       size="sm"
                       onClick={handleDeleteChat}
                       disabled={!isPersistedChat || deleteBusy}
-                      iconLeft={<HiMiniTrash className="h-4 w-4 text-red-400" />}
-                      className="w-full justify-start text-xs text-red-400 hover:text-red-300"
+                      iconLeft={<HiMiniTrash className="h-4 w-4 text-rose-500" />}
+                      className="w-full justify-start rounded-xl text-rose-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors"
                     >
                       Delete conversation
                     </Button>

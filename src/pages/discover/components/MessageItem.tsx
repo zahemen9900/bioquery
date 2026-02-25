@@ -90,8 +90,8 @@ export function MessageItem({ message, isActiveStream = false, isLatestAssistant
   const containerAlignment = isAssistant ? 'justify-start' : 'justify-end'
   const contentAlignment = isAssistant ? 'items-start text-left' : 'items-end text-right'
   const bubbleClass = isAssistant
-    ? 'bg-scheme-surface/90 text-scheme-text shadow-sm'
-    : 'bg-biosphere-500/10 text-scheme-text border border-biosphere-500/20 backdrop-blur-sm'
+    ? 'bg-scheme-surface/80 text-scheme-text shadow-sm border border-black/5 dark:border-white/5 backdrop-blur-md'
+    : 'bg-gradient-to-br from-biosphere-500/15 to-biosphere-600/5 text-scheme-text border border-biosphere-500/30 backdrop-blur-md shadow-[inset_0_2px_10px_rgba(0,0,0,0.05)] dark:shadow-[inset_0_2px_10px_rgba(255,255,255,0.02)]'
   const nameLabel = isAssistant ? 'BioQuery' : 'You'
   const timestamp = new Date(message.created_at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
   const feedbackState = message.feedback ?? null
@@ -123,12 +123,12 @@ export function MessageItem({ message, isActiveStream = false, isLatestAssistant
   const showThinkingPlaceholder = isAssistant && !hasSegments && !hasPlainContent
 
   const avatar = isAssistant ? (
-    <div className="mt-1 flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-biosphere-500 to-biosphere-600 text-white shadow">
-      <HiOutlineSparkles className="h-4 w-4" />
+    <div className="mt-1 flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-biosphere-500 to-space-600 text-white shadow-[0_0_12px_rgba(0,231,179,0.3)] ring-1 ring-biosphere-500/30">
+      <HiOutlineSparkles className="h-4 w-4 drop-shadow-[0_0_8px_rgba(255,255,255,0.8)]" />
     </div>
   ) : (
-    <div className="mt-1 flex h-9 w-9 items-center justify-center rounded-full bg-primary/15 text-primary shadow">
-      <span className="text-xs font-semibold">You</span>
+    <div className="mt-1 flex h-9 w-9 items-center justify-center rounded-full bg-white/50 dark:bg-space-800/80 border border-black/10 dark:border-white/10 text-slate-700 dark:text-space-200 shadow-sm backdrop-blur-sm">
+      <span className="text-[11px] font-bold tracking-wider">YOU</span>
     </div>
   )
 
@@ -202,16 +202,16 @@ export function MessageItem({ message, isActiveStream = false, isLatestAssistant
         </div>
 
         {isAssistant && message.thoughts && message.thoughts.trim().length > 0 ? (
-          <details className="group w-full text-sm leading-relaxed text-scheme-muted-text">
-            <summary className="flex cursor-pointer select-none items-center gap-2 text-xs font-medium text-scheme-muted-text/80 transition hover:text-scheme-text">
-              <span className="h-1.5 w-1.5 rounded-full bg-amber-400 group-open:bg-emerald-400" />
-              <span className="inline-flex items-center gap-1 font-semibold text-scheme-text">
+          <details className="group w-full text-sm leading-relaxed text-slate-500 dark:text-space-400">
+            <summary className="flex cursor-pointer select-none items-center gap-2 text-xs font-semibold uppercase tracking-widest text-slate-400 dark:text-space-400/80 transition hover:text-slate-700 dark:hover:text-space-200">
+              <span className="h-2 w-2 rounded-full bg-amber-500/80 shadow-[0_0_8px_rgba(245,158,11,0.5)] group-open:bg-biosphere-500/80 group-open:shadow-[0_0_8px_rgba(0,231,179,0.5)] transition-colors" />
+              <span className="inline-flex items-center gap-1">
                 Model thoughts
-                <HiMiniChevronDown className="h-4 w-4 text-scheme-muted-text transition group-open:rotate-180" />
+                <HiMiniChevronDown className="h-4 w-4 transition-transform group-open:rotate-180" />
               </span>
             </summary>
-            <div className="mt-2 w-full rounded-2xl bg-scheme-surface/80 p-3 text-left shadow-inner">
-              <MarkdownMessage content={message.thoughts} className="italic text-scheme-muted-text/60" />
+            <div className="mt-3 w-full rounded-2xl border border-black/5 dark:border-white/5 bg-slate-100/50 dark:bg-space-900/50 p-4 text-left shadow-inner backdrop-blur-sm">
+              <MarkdownMessage content={message.thoughts} className="italic text-slate-600/90 dark:text-space-300/80 leading-relaxed text-[13px]" />
             </div>
           </details>
         ) : null}
